@@ -1,0 +1,2 @@
+# StockTradingBot
+Forecasting model
