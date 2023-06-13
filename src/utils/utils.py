@@ -19,5 +19,5 @@ def make_time_series(data: pd.DataFrame, num: int) -> np.array:
     label = []
     for i in range(len(data_array)-num):
         output.append(data_array[i:i+num])
-        label.append(data_array[i+num])
+        label.append(data_array[i+num, :4])
     return np.array(output), np.array(label)
