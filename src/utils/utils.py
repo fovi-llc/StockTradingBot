@@ -11,13 +11,14 @@ def get_stock_data(symbol: str,
     
     return stock_data
 
-def make_time_series(data: pd.DataFrame, num: int) -> np.array:
+def make_time_series(data: pd.DataFrame,
+                     num_in_sequence: int) -> np.array:
     columns = ['Open', 'High', 'Low', 'Close', 'Volume']
     data_array = data[columns].values
 
     output = []
     label = []
-    for i in range(len(data_array)-num):
-        output.append(data_array[i:i+num])
-        label.append(data_array[i+num, :4])
+    for i in range(len(data_array)-num_in_sequence):
+        output.append(data_array[i:i+num_in_sequence])
+        label.append(data_array[i+num_in_sequence, 3])
     return np.array(output), np.array(label)
