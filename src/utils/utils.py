@@ -20,5 +20,5 @@ def make_time_series(data: pd.DataFrame,
     label = []
     for i in range(len(data_array)-num_in_sequence):
         output.append(data_array[i:i+num_in_sequence])
-        label.append(data_array[i+num_in_sequence, 3])
+        label.append([data_array[i+num_in_sequence, 3]])
     return np.array(output), np.array(label)

@@ -9,16 +9,22 @@ from tensorflow.keras.callbacks import ModelCheckpoint
 #####################
 ## Data Collection ##
 #####################
-symbol = 'AAPL'  # Apple stock
-peroid = '7d'    # max, 1m (1month), 7d (7days)
+peroid = '7d'    # max, 1mo (1month), 7d (7days)
 interval = '1m' # 1-minute interval
-data = utils.get_stock_data(symbol, peroid, interval)
+data1 = utils.get_stock_data("AAPL", peroid, interval)
+data2 = utils.get_stock_data("GOOGL", peroid, interval)
+data3 = utils.get_stock_data("NVDA", peroid, interval)
+data4 = utils.get_stock_data("SPY", peroid, interval)
+data5 = utils.get_stock_data("VOO", peroid, interval)
+data6 = utils.get_stock_data("AMD", peroid, interval)
+
+data = pd.concat([data1, data2, data3, data4, data5, data6], axis=0)
 
 # Save Data (if necessary)
 data.to_csv("data.csv", index=False)
 data = pd.read_csv("data.csv")
 
-num_in_sequence = 60
+num_in_sequence = 120
 time_series, label = utils.make_time_series(data, num_in_sequence)
 
 ####################
@@ -65,7 +71,7 @@ model.fit(x=time_series,
           y=label,
           batch_size=batch_size,
           epochs=1000,
-          validation_split=.1,
+          validation_split=.25,
           shuffle=True,
           callbacks=[checkpoint]
 )
