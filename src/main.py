@@ -11,30 +11,32 @@ from tensorflow.keras.callbacks import ModelCheckpoint
 #####################
 peroid = '7d'    # max, 1mo (1month), 7d (7days)
 interval = '1m' # 1-minute interval
-data1 = utils.get_stock_data("AAPL", peroid, interval)
-data2 = utils.get_stock_data("GOOGL", peroid, interval)
-data3 = utils.get_stock_data("NVDA", peroid, interval)
-data4 = utils.get_stock_data("SPY", peroid, interval)
-data5 = utils.get_stock_data("VOO", peroid, interval)
-data6 = utils.get_stock_data("AMD", peroid, interval)
+#data1 = utils.get_stock_data("AAPL", peroid, interval)
+data = utils.get_stock_data("GOOGL", peroid, interval)
+#data3 = utils.get_stock_data("NVDA", peroid, interval)
+#data4 = utils.get_stock_data("SPY", peroid, interval)
+#data5 = utils.get_stock_data("VOO", peroid, interval)
+#data6 = utils.get_stock_data("AMD", peroid, interval)
 
-data = pd.concat([data1, data2, data3, data4, data5, data6], axis=0)
+#data = pd.concat([data1, data2, data3, data4, data5, data6], axis=0)
+#data = pd.concat([data1, data2], axis=0)
 
 # Save Data (if necessary)
 data.to_csv("data.csv", index=False)
 data = pd.read_csv("data.csv")
 
-num_in_sequence = 120
-time_series, label = utils.make_time_series(data, num_in_sequence)
+sequence_len = 10
+time_series, label = utils.make_time_series(data, sequence_len)
+print(time_series)
 
 ####################
 ## Neural Network ##
 ####################
 
-input_shape = (num_in_sequence, 5)
+input_shape = (sequence_len, 4)
 batch_size = 32
 
-lr = 0.1
+lr = 0.001
 loss = tf.keras.losses.MeanSquaredError()
 #loss = tf.keras.losses.MeanAbsoluteError()
 #loss = tf.keras.losses.BinaryCrossentropy(from_logits=False,)
@@ -51,17 +53,17 @@ checkpoint = ModelCheckpoint('best_weights.h5',
                              save_best_only=True,
                              save_weights_only=True,
                              verbose=1)
-#model.load_weights("best_weights.h5")
+model.load_weights("best_weights.h5")
 #model.load_weights("final_weights.h5")
 
 
 ###############
 ## Inference ##
 ###############
-#predictions = model.predict(np.array([time_series[0]]))
+#predictions = model.predict(np.array(time_series))
 #print(predictions)
-#print(label[0])
-#print(loss(label[0], predictions[0]))
+#print(label)
+#print(loss(label, predictions))
 #exit()
 
 ###########

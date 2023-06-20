@@ -13,7 +13,8 @@ def get_stock_data(symbol: str,
 
 def make_time_series(data: pd.DataFrame,
                      num_in_sequence: int) -> np.array:
-    columns = ['Open', 'High', 'Low', 'Close', 'Volume']
+    #columns = ['Open', 'High', 'Low', 'Close', 'Volume']
+    columns = ['Open', 'High', 'Low', 'Close']
     data_array = data[columns].values
 
     output = []
