@@ -1,3 +1,4 @@
+import random
 import numpy as np
 import pandas as pd
 import yfinance as yf
@@ -19,7 +20,60 @@ def make_time_series(data: pd.DataFrame,
 
     output = []
     label = []
-    for i in range(len(data_array)-num_in_sequence):
+    for i in range(len(data_array)-num_in_sequence-1):
         output.append(data_array[i:i+num_in_sequence])
         label.append([data_array[i+num_in_sequence, 3]])
     return np.array(output), np.array(label)
+
+
+def train_val_test_split(data, labels, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, random=True):
+    assert train_ratio + val_ratio + test_ratio == 1.0, "The sum of train_ratio, val_ratio, and test_ratio must be 1.0"
+
+    num_samples = data.shape[0]
+    num_train = int(num_samples * train_ratio)
+    num_val = int(num_samples * val_ratio)
+    num_test = num_samples - num_train - num_val
+
+    # Split the data and labels into train, val, and test sets
+    train_data = data[:num_train]
+    train_labels = labels[:num_train]
+    val_data = data[num_train:num_train + num_val]
+    val_labels = labels[num_train:num_train + num_val]
+    test_data = data[num_train + num_val:]
+    test_labels = labels[num_train + num_val:]
+
+    if random:
+        shuffled_indices = np.random.permutation(len(train_data))
+        train_data, train_labels = train_data[shuffled_indices], train_labels[shuffled_indices]
+
+        shuffled_indices = np.random.permutation(len(val_data))
+        val_data, val_labels = val_data[shuffled_indices], val_labels[shuffled_indices]
+
+        shuffled_indices = np.random.permutation(len(test_data))
+        test_data, test_labels = test_data[shuffled_indices], test_labels[shuffled_indices]
+    
+
+    return train_data, train_labels, val_data, val_labels, test_data, test_labels
+
+def create_batches(data, labels, batch_size):
+    num_samples = data.shape[0]
+    num_batches = num_samples // batch_size
+    
+    # Compute the number of samples in the last batch
+    remaining_samples = num_samples % batch_size
+    
+    # Split the data and labels into batches
+    data_batches = np.split(data[:num_batches * batch_size], num_batches)
+    label_batches = np.split(labels[:num_batches * batch_size], num_batches)
+    
+    # Add the remaining samples as a separate batch
+    if remaining_samples > 0:
+        data_batches.append(data[num_batches * batch_size:])
+        label_batches.append(labels[num_batches * batch_size:])
+    
+    return np.array(data_batches), np.array(label_batches)
+
+def shuffle(data, labels):
+    zipped_data = list(zip(data, labels))
+    random.shuffle(zipped_data)
+    return zipped_data

@@ -1,3 +1,4 @@
+import time
 import numpy as np
 
 import tensorflow as tf
@@ -40,3 +41,64 @@ def get_model(input_shape):
 
     model = tf.keras.Model(inputs=inputs, outputs=outputs)
     return model
+
+def train_model(model, train_data, train_labels, val_data=None, val_labels=None, epochs=None, loss_fn=None, optimizer=None, duration=55):
+
+    start_time = time.time()
+
+    best_val_loss = float('inf')
+    for epoch in range(epochs):
+        while time.time() - start_time < duration:
+            
+            # Train Loop
+            epoch_loss = 0.0
+            for batch, (inputs, labels) in enumerate(zip(train_data, train_labels)):
+                with tf.GradientTape() as tape:
+                    predictions = model(inputs, training=True)
+        
+                    batch_loss = loss_fn(labels, predictions)
+        
+                gradients = tape.gradient(batch_loss, model.trainable_variables)
+                optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+        
+                epoch_loss += batch_loss
+    
+            avg_train_loss = epoch_loss / (batch + 1)
+        
+            # Validation Loop
+            if val_data.all():
+                val_loss = 0.0
+                for batch, (inputs, labels) in enumerate(zip(val_data, val_labels)):
+                    with tf.GradientTape() as tape:
+                        predictions = model(inputs, training=False)
+                
+                        batch_loss = loss_fn(labels, predictions)
+                
+                    val_loss += batch_loss
+                
+                avg_val_loss = val_loss / (batch + 1)
+                print(f"Time {time.time() - start_time}, Epoch {epoch+1}/{epochs}, Loss: {avg_train_loss:.4f}, Val_Loss: {avg_val_loss:.4f}")
+                
+                if avg_val_loss < best_val_loss:
+                    print(f"Val_Loss improved from {best_val_loss:.4f} to {avg_val_loss:.4f}")
+                    best_val_loss = avg_val_loss
+                    model.save_weights("best_weights.h5")
+                else:
+                    print(f"Val_Loss did not improve from {best_val_loss:.4f}")
+            else:
+                print(f"Time {time.time() - start_time}, Epoch {epoch+1}/{epochs}, Loss: {avg_train_loss:.4f}")
+                if avg_train_loss < best_val_loss:
+                    print(f"Loss improved from {best_val_loss:.4f} to {avg_train_loss:.4f}")
+                    best_val_loss = avg_train_loss
+                    model.save_weights("best_weights.h5")
+                else:
+                    print(f"Train_Loss did not improve from {best_val_loss:.4f}")
+    model.save_weights("final_weights.h5")
+
+def infer_model(model, test_data, test_labels):
+    
+    for batch, (inputs, labels) in enumerate(zip(test_data, test_labels)):
+            with tf.GradientTape() as tape:
+                predictions = model(inputs, training=False)
+    
+    return predictions
