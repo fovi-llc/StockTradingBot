@@ -25,6 +25,18 @@ def make_time_series(data: pd.DataFrame,
         label.append([data_array[i+num_in_sequence, 3]])
     return np.array(output), np.array(label)
 
+def make_prediction_series(data: pd.DataFrame,
+                           num_in_sequence: int) -> np.array:
+    columns = ['Open', 'High', 'Low', 'Close']
+    data_array = data[columns].values
+
+    output = []
+    label = []
+    for i in range(len(data_array)-num_in_sequence):
+        output.append(data_array[i:i+num_in_sequence])
+        label.append([data_array[i+num_in_sequence, 3]])
+    return np.array(output), np.array(label)
+
 
 def train_val_test_split(data, labels, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, random=True):
     assert train_ratio + val_ratio + test_ratio == 1.0, "The sum of train_ratio, val_ratio, and test_ratio must be 1.0"
@@ -71,7 +83,7 @@ def create_batches(data, labels, batch_size):
         data_batches.append(data[num_batches * batch_size:])
         label_batches.append(labels[num_batches * batch_size:])
     
-    return np.array(data_batches), np.array(label_batches)
+    return np.array(data_batches, dtype=object), np.array(label_batches, dtype=object)
 
 def shuffle(data, labels):
     zipped_data = list(zip(data, labels))
