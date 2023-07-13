@@ -2,6 +2,26 @@ import random
 import numpy as np
 import pandas as pd
 import yfinance as yf
+import tensorflow as tf
+
+# Colors
+black = '\033[30m'
+red = '\033[31m'
+green = '\033[32m'
+yellow = '\033[33m'
+blue = '\033[34m'
+magenta = '\033[35m'
+cyan = '\033[36m'
+gray = '\033[90m'
+light_red = '\033[91m'
+light_green = '\033[92m'
+light_yellow = '\033[93m'
+light_blue = '\033[94m'
+light_magenta = '\033[95m'
+light_cyan = '\033[96m'
+light_gray = '\033[37m'
+white = '\033[37m'
+reset = '\033[0m'
 
 def get_stock_data(symbol: str,
                    peroid: str,
@@ -20,10 +40,14 @@ def make_time_series(data: pd.DataFrame,
 
     output = []
     label = []
-    for i in range(len(data_array)-num_in_sequence-1):
+    for i in range(len(data_array)-num_in_sequence):
         output.append(data_array[i:i+num_in_sequence])
         label.append([data_array[i+num_in_sequence, 3]])
-    return np.array(output), np.array(label)
+
+    output = np.array(output, dtype=np.float32)
+    label = np.array(label, dtype=np.float32)
+
+    return tf.convert_to_tensor(output), tf.convert_to_tensor(label)
 
 def make_prediction_series(data: pd.DataFrame,
                            num_in_sequence: int) -> np.array:
@@ -33,8 +57,9 @@ def make_prediction_series(data: pd.DataFrame,
     output = []
     label = []
     for i in range(len(data_array)-num_in_sequence):
-        output.append(data_array[i:i+num_in_sequence])
+        output.append(data_array[i+1:i+num_in_sequence+1])
         label.append([data_array[i+num_in_sequence, 3]])
+    
     return np.array(output), np.array(label)
 
 
@@ -82,8 +107,8 @@ def create_batches(data, labels, batch_size):
     if remaining_samples > 0:
         data_batches.append(data[num_batches * batch_size:])
         label_batches.append(labels[num_batches * batch_size:])
-    
-    return np.array(data_batches, dtype=object), np.array(label_batches, dtype=object)
+
+    return np.array(data_batches, dtype="object"), np.array(label_batches, dtype="object")
 
 def shuffle(data, labels):
     zipped_data = list(zip(data, labels))

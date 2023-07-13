@@ -19,6 +19,7 @@ lr = 0.001
 
 peroid = '1d'    # max, 1mo (1month), 7d (7days)
 interval = '1m' # 1-minute interva
+ticker = "GOOGL"
 
 ####################
 ## Neural Network ##
@@ -42,7 +43,7 @@ while True:
     ##########
     ## Data ##
     ##########
-    data = utils.get_stock_data("GOOGL", peroid, interval)
+    data = utils.get_stock_data(ticker, peroid, interval)
     time_series, labels = utils.make_time_series(data, sequence_len)
 
     train_data = time_series[:, ::]
@@ -55,6 +56,9 @@ while True:
     
     train_data, train_labels = utils.create_batches(train_data, train_labels, batch_size=32)
     val_data, val_labels = np.expand_dims(np.expand_dims(val_data, axis=0), axis=0), np.expand_dims(np.expand_dims(val_labels, axis=0), axis=0)
+
+    print(f"{train_data.shape=} {train_labels.shape=}")
+    print(f"{val_data.shape=} {val_labels.shape=}")
 
     ###########
     ## Train ##
@@ -74,35 +78,74 @@ while True:
     ## Inference ##
     ###############
     ## get latest data
-    data = utils.get_stock_data("GOOGL", peroid, interval)
+    data = utils.get_stock_data(ticker, peroid, interval)
     time_series, labels = utils.make_prediction_series(data, sequence_len)
     test_data = time_series[-1, ::]
     test_labels = labels[-1, ::]
     test_data, test_labels = np.expand_dims(np.expand_dims(test_data, axis=0), axis=0), np.expand_dims(np.expand_dims(test_labels, axis=0), axis=0)
+    print(f"{test_data.shape=} {test_labels.shape=}")
     
     model.load_weights("best_weights.h5")
     prediction = NN.infer_model(model,
                                 test_data,
                                 test_labels)
+    
+    current_price = yf.Ticker(ticker).history().tail(1)['Close'].values[0]
     print()
     print(f"{prev_price=}")
+    print(f"{current_price=}")
     print(f"{test_labels[0][0][0]=}")
     print(f"{prediction.numpy()[0][0]=}")
-    
-    current_price = yf.Ticker("GOOGL").history().tail(1)['Close'].values[0]
-    if prediction.numpy()[0][0] > prev_price:
-        if not OWN:
-            print(f"BUY @ {current_price=:.8}")
+
+    if OWN:
+        if (current_price < BUY_PRICE or
+            prediction.numpy()[0][0] < BUY_PRICE or
+            prediction.numpy()[0][0] < current_price):
+            print(f"{utils.magenta}SELL {BUY_PRICE=:.8} @ {current_price=:.8} (+-) {current_price - BUY_PRICE=:.8}{utils.reset}")
+            OWN = False
+            TOTAL += current_price - BUY_PRICE
+            BUY_PRICE = 0.0
+        else:
+            print(f"{utils.blue}HOLD @ {BUY_PRICE=:.8} while {current_price=:.8}{utils.reset}")
+    elif not OWN:
+        if prediction.numpy()[0][0] > current_price:
+            print(f"{utils.green}BUY @ {current_price=:.8}{utils.reset}")
             OWN = True
             BUY_PRICE = current_price
-        else:
-            print(f"HOLD @ {BUY_PRICE=:.8} while {current_price=:.8}")
-    elif prediction.numpy()[0][0] < prev_price:
-        if not OWN:
-            print("PASS")
-        else:
-            print(f"SELL {BUY_PRICE=:.8} @ {current_price=:.8} (+-) {current_price - BUY_PRICE=:.8}")
-            OWN = False
-            TOTAL = current_price - BUY_PRICE
-    print(f"{TOTAL=:.8}")
+        elif prediction.numpy()[0][0] < current_price:
+            print(f"{utils.gray}PASS{utils.reset}")
+            
+
+    if TOTAL < 0:
+        print(f"{utils.red}{TOTAL=}{utils.reset}")
+    else:
+        print(f"{utils.green}{TOTAL=}{utils.reset}")
     print()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#    if prediction.numpy()[0][0] > current_price:
+#        if not OWN:
+#            print(f"{utils.green}BUY @ {current_price=:.8}{utils.reset}")
+#            OWN = True
+#            BUY_PRICE = current_price
+#        else:
+#            print(f"{utils.blue}HOLD @ {BUY_PRICE=:.8} while {current_price=:.8}{utils.reset}")
+#    elif prediction.numpy()[0][0] < current_price:
+#        if not OWN:
+#            print(f"{utils.gray}PASS{utils.reset}")
+#        else:
+#            print(f"{utils.yellow}SELL {BUY_PRICE=:.8} @ {current_price=:.8} (+-) {current_price - BUY_PRICE=:.8}{utils.reset}")
+#            OWN = False
+#            TOTAL += current_price - BUY_PRICE
