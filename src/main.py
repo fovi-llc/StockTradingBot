@@ -8,7 +8,6 @@ import yfinance as yf
 
 from utils import utils, NN
 
-
 ################
 ## Parameters ##
 ################
