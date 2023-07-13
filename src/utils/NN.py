@@ -20,16 +20,6 @@ class Attention(tf.keras.layers.Layer):
         a = tf.nn.softmax(e, axis=1)
         weighted_sum = tf.reduce_sum(inputs * a, axis=1)
         return weighted_sum
-    
-#def get_model(input_shape: list):
-#    model = Sequential()
-#    model.add(LSTM(units=128, input_shape=input_shape, return_sequences=True, kernel_initializer='glorot_uniform'))
-#    model.add(Attention())
-#    #model.add(BatchNormalization())
-#    model.add(Dense(units=32, activation='relu', kernel_initializer='glorot_uniform'))
-#    model.add(Dense(units=1, activation='relu', kernel_initializer='glorot_uniform'))
-#    return model
-
 
 def get_model(input_shape):
     inputs = tf.keras.Input(shape=input_shape)
