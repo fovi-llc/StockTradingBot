@@ -57,9 +57,6 @@ while True:
     train_data, train_labels = utils.create_batches(train_data, train_labels, batch_size=32)
     val_data, val_labels = np.expand_dims(np.expand_dims(val_data, axis=0), axis=0), np.expand_dims(np.expand_dims(val_labels, axis=0), axis=0)
 
-    print(f"{train_data.shape=} {train_labels.shape=}")
-    print(f"{val_data.shape=} {val_labels.shape=}")
-
     ###########
     ## Train ##
     ###########
@@ -83,7 +80,6 @@ while True:
     test_data = time_series[-1, ::]
     test_labels = labels[-1, ::]
     test_data, test_labels = np.expand_dims(np.expand_dims(test_data, axis=0), axis=0), np.expand_dims(np.expand_dims(test_labels, axis=0), axis=0)
-    print(f"{test_data.shape=} {test_labels.shape=}")
     
     model.load_weights("best_weights.h5")
     prediction = NN.infer_model(model,
@@ -92,24 +88,25 @@ while True:
     
     current_price = yf.Ticker(ticker).history().tail(1)['Close'].values[0]
     print()
-    print(f"{prev_price=}")
-    print(f"{current_price=}")
-    print(f"{test_labels[0][0][0]=}")
-    print(f"{prediction.numpy()[0][0]=}")
+    print(f"{current_price=} {prediction.numpy()[0][0]=}")
 
+    if (current_price < BUY_PRICE) and OWN:
+        print(f"{utils.light_blue}SELL {BUY_PRICE=:.8} @ {current_price=:.8} (+-) {current_price - BUY_PRICE=:.8}{utils.reset}")
+        OWN = False
+        TOTAL += current_price - BUY_PRICE
+        BUY_PRICE = 0.0
     if OWN:
-        if (current_price < BUY_PRICE or
-            prediction.numpy()[0][0] < BUY_PRICE or
+        if (prediction.numpy()[0][0] < BUY_PRICE or
             prediction.numpy()[0][0] < current_price):
-            print(f"{utils.magenta}SELL {BUY_PRICE=:.8} @ {current_price=:.8} (+-) {current_price - BUY_PRICE=:.8}{utils.reset}")
+            print(f"{utils.light_blue}SELL {BUY_PRICE=:.8} @ {current_price=:.8} (+-) {current_price - BUY_PRICE=:.8}{utils.reset}")
             OWN = False
             TOTAL += current_price - BUY_PRICE
             BUY_PRICE = 0.0
         else:
-            print(f"{utils.blue}HOLD @ {BUY_PRICE=:.8} while {current_price=:.8}{utils.reset}")
+            print(f"{utils.magenta}HOLD @ {BUY_PRICE=:.8} while {current_price=:.8}{utils.reset}")
     elif not OWN:
         if prediction.numpy()[0][0] > current_price:
-            print(f"{utils.green}BUY @ {current_price=:.8}{utils.reset}")
+            print(f"{utils.light_green}BUY @ {current_price=:.8}{utils.reset}")
             OWN = True
             BUY_PRICE = current_price
         elif prediction.numpy()[0][0] < current_price:
@@ -117,35 +114,7 @@ while True:
             
 
     if TOTAL < 0:
-        print(f"{utils.red}{TOTAL=}{utils.reset}")
+        print(f"{utils.light_red}{TOTAL=}{utils.reset}")
     else:
         print(f"{utils.green}{TOTAL=}{utils.reset}")
     print()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#    if prediction.numpy()[0][0] > current_price:
-#        if not OWN:
-#            print(f"{utils.green}BUY @ {current_price=:.8}{utils.reset}")
-#            OWN = True
-#            BUY_PRICE = current_price
-#        else:
-#            print(f"{utils.blue}HOLD @ {BUY_PRICE=:.8} while {current_price=:.8}{utils.reset}")
-#    elif prediction.numpy()[0][0] < current_price:
-#        if not OWN:
-#            print(f"{utils.gray}PASS{utils.reset}")
-#        else:
-#            print(f"{utils.yellow}SELL {BUY_PRICE=:.8} @ {current_price=:.8} (+-) {current_price - BUY_PRICE=:.8}{utils.reset}")
-#            OWN = False
-#            TOTAL += current_price - BUY_PRICE

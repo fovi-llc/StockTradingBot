@@ -1,4 +1,5 @@
 import random
+import warnings
 import numpy as np
 import pandas as pd
 import yfinance as yf
@@ -105,10 +106,14 @@ def create_batches(data, labels, batch_size):
     
     # Add the remaining samples as a separate batch
     if remaining_samples > 0:
-        data_batches.append(data[num_batches * batch_size:])
-        label_batches.append(labels[num_batches * batch_size:])
+        data_batches.append(tf.convert_to_tensor(data[num_batches * batch_size:]))
+        label_batches.append(tf.convert_to_tensor(labels[num_batches * batch_size:]))
 
-    return np.array(data_batches, dtype="object"), np.array(label_batches, dtype="object")
+    #return tf.convert_to_tensor(data_batches), tf.convert_to_tensor(label_batches)
+    #return np.array(data_batches, dtype="object"), np.array(label_batches, dtype="object")
+    data_batches = [tf.convert_to_tensor(batch) for batch in data_batches]
+    label_batches = [tf.convert_to_tensor(batch) for batch in label_batches]
+    return data_batches, label_batches
 
 def shuffle(data, labels):
     zipped_data = list(zip(data, labels))
