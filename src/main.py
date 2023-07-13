@@ -17,8 +17,8 @@ input_shape = (sequence_len, 4)
 batch_size = 32
 lr = 0.001
 
-peroid = '1d'    # max, 1mo (1month), 7d (7days)
-interval = '1m' # 1-minute interva
+peroid = '2d' #1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max
+interval = '2m' # 1m, 2m, 5m, 15m, 30m, 60m 90m, 1h, 1d, 5d, 1wk, 1mo
 ticker = "GOOGL"
 
 ####################
@@ -49,13 +49,13 @@ while True:
     train_data = time_series[:, ::]
     train_labels = labels[:, ::]
     
-    val_data = time_series[-1, ::]
-    val_labels = labels[-1, ::]
+    val_data = time_series[-5:, ::]
+    val_labels = labels[-5:, ::]
 
     prev_price = val_labels[-1]
     
     train_data, train_labels = utils.create_batches(train_data, train_labels, batch_size=32)
-    val_data, val_labels = np.expand_dims(np.expand_dims(val_data, axis=0), axis=0), np.expand_dims(np.expand_dims(val_labels, axis=0), axis=0)
+    val_data, val_labels = np.expand_dims(val_data, axis=0), np.expand_dims(val_labels, axis=0)
 
     ###########
     ## Train ##
@@ -69,7 +69,7 @@ while True:
                    loss_fn=loss_fn,
                    optimizer=optimizer,
                    duration=60,
-                   verbose=False,)
+                   verbose=True,)
 
     ###############
     ## Inference ##
@@ -77,9 +77,9 @@ while True:
     ## get latest data
     data = utils.get_stock_data(ticker, peroid, interval)
     time_series, labels = utils.make_prediction_series(data, sequence_len)
-    test_data = time_series[-1, ::]
-    test_labels = labels[-1, ::]
-    test_data, test_labels = np.expand_dims(np.expand_dims(test_data, axis=0), axis=0), np.expand_dims(np.expand_dims(test_labels, axis=0), axis=0)
+    test_data = time_series[-1:, ::]
+    test_labels = labels[-1:, ::]
+    test_data, test_labels = np.expand_dims(test_data, axis=0), np.expand_dims(test_labels, axis=0)
     
     model.load_weights("best_weights.h5")
     prediction = NN.infer_model(model,
