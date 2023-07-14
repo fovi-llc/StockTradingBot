@@ -16,7 +16,7 @@ input_shape = (sequence_len, 4)
 batch_size = 32
 lr = 0.001
 
-peroid = '2d' #1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max
+peroid = '1d' #1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max
 interval = '2m' # 1m, 2m, 5m, 15m, 30m, 60m 90m, 1h, 1d, 5d, 1wk, 1mo
 ticker = "GOOGL"
 
@@ -33,7 +33,7 @@ model.summary()
 ################
 ## simulation ##
 ################
-
+start_price = yf.Ticker(ticker).history().tail(1)['Close'].values[0]
 OWN = False
 BUY_PRICE = 0.0
 TOTAL = 0.0
@@ -68,7 +68,7 @@ while True:
                    loss_fn=loss_fn,
                    optimizer=optimizer,
                    duration=60,
-                   verbose=True,)
+                   verbose=False,)
 
     ###############
     ## Inference ##
@@ -95,8 +95,10 @@ while True:
         TOTAL += current_price - BUY_PRICE
         BUY_PRICE = 0.0
     if OWN:
-        if (prediction.numpy()[0][0] < BUY_PRICE or
-            prediction.numpy()[0][0] < current_price):
+        tolerance = .10 # 10 cents
+        if (((current_price > BUY_PRICE) and (prediction.numpy()[0][0] < current_price+tolerance)) or
+            (prediction.numpy()[0][0] < BUY_PRICE) or
+            (prediction.numpy()[0][0] < current_price)):
             print(f"{utils.light_blue}SELL {BUY_PRICE=:.8} @ {current_price=:.8} (+-) {current_price - BUY_PRICE=:.8}{utils.reset}")
             OWN = False
             TOTAL += current_price - BUY_PRICE
@@ -113,7 +115,8 @@ while True:
             
 
     if TOTAL < 0:
-        print(f"{utils.light_red}{TOTAL=}{utils.reset}")
+        print(f"{utils.light_red}{TOTAL=:.8}{utils.reset}")
     else:
-        print(f"{utils.green}{TOTAL=}{utils.reset}")
+        print(f"{utils.green}{TOTAL=:.8}{utils.reset}")
+    print(f"Started trading at {start_price=:.8} Without trading bot {current_price - start_price=:.8}")
     print()
