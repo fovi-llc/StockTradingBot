@@ -39,6 +39,9 @@ def train_model(model, train_data, train_labels, val_data=None, val_labels=None,
 
     best_val_loss = float('inf')
     while time.time() - start_time < duration:
+
+        # condition for early stoppage
+        if best_val_loss < 0.005: break
         
         # Train Loop
         epoch_loss = 0.0
@@ -87,7 +90,8 @@ def train_model(model, train_data, train_labels, val_data=None, val_labels=None,
         if verbose:
             print(print_ln)
         else:
-            print(f"Time {datetime.now().time()}, Run_Time {time.time() - start_time:.4}", end="\r")
+            print("                                                                          ", end="\r")
+            print(f"Time {datetime.now().time()}, Run_Time {time.time() - start_time:.4} {best_val_loss=:.4f}", end="\r")
     model.save_weights("final_weights.h5")
 
 def infer_model(model, test_data, test_labels):

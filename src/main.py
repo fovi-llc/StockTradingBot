@@ -95,8 +95,9 @@ while True:
         TOTAL += current_price - BUY_PRICE
         BUY_PRICE = 0.0
     if OWN:
-        tolerance = .10 # 10 cents
-        if (((current_price > BUY_PRICE) and (prediction.numpy()[0][0] < current_price+tolerance)) or
+        tolerance_percentage = 0.05 # 5% tolerance
+        if (((current_price > BUY_PRICE) and
+             (prediction.numpy()[0][0] < current_price*(1+tolerance_percentage))) or
             (prediction.numpy()[0][0] < BUY_PRICE) or
             (prediction.numpy()[0][0] < current_price)):
             print(f"{utils.light_blue}SELL {BUY_PRICE=:.8} @ {current_price=:.8} (+-) {current_price - BUY_PRICE=:.8}{utils.reset}")
