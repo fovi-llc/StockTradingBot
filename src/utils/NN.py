@@ -87,12 +87,15 @@ def train_model(model, train_data, train_labels, val_data=None, val_labels=None,
                 model.save_weights("best_weights.h5")
             else:
                 print_ln += f"\nTrain_Loss did not improve from {best_val_loss:.4f}"
+
+        
         if verbose:
             print(print_ln)
+            print("\033[2A", end="")  # Move the cursor 2 lines up
+            print("\033[K", end="")   # Clear the current line
         else:
             print("                                                                          ", end="\r")
             print(f"Time {datetime.now().time()}, Run_Time {time.time() - start_time:.4} {best_val_loss=:.4f}", end="\r")
-    model.save_weights("final_weights.h5")
 
 def infer_model(model, test_data, test_labels):
     
