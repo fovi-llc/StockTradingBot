@@ -33,7 +33,7 @@ def get_model(input_shape):
     model = tf.keras.Model(inputs=inputs, outputs=outputs)
     return model
 
-def train_model(model, train_data, train_labels, val_data=None, val_labels=None, loss_fn=None, optimizer=None, duration=55, verbose=True):
+def train_model(model, train_data, train_labels, ticker, val_data=None, val_labels=None, loss_fn=None, optimizer=None, duration=55, verbose=True):
 
     start_time = time.time()
 
@@ -75,7 +75,7 @@ def train_model(model, train_data, train_labels, val_data=None, val_labels=None,
             if avg_val_loss < best_val_loss:
                 print_ln += f"\nVal_Loss improved from {best_val_loss:.4f} to {avg_val_loss:.4f}"
                 best_val_loss = avg_val_loss
-                model.save_weights("best_weights.h5")
+                model.save_weights(f"{ticker}.best_weights.h5")
             else:
                 print_ln += f"\nVal_Loss did not improve from {best_val_loss:.4f}"
         else:
@@ -84,7 +84,7 @@ def train_model(model, train_data, train_labels, val_data=None, val_labels=None,
                 #print(f"Loss improved from {best_val_loss:.4f} to {avg_train_loss:.4f}", end="\r")
                 print_ln += f"\nLoss improved from {best_val_loss:<5.4f} to {avg_train_loss:<5.4f}"
                 best_val_loss = avg_train_loss
-                model.save_weights("best_weights.h5")
+                model.save_weights(f"{ticker}.best_weights.h5")
             else:
                 print_ln += f"\nTrain_Loss did not improve from {best_val_loss:.4f}"
 
@@ -96,6 +96,7 @@ def train_model(model, train_data, train_labels, val_data=None, val_labels=None,
         else:
             print("                                                                          ", end="\r")
             print(f"Time {datetime.now().time()}, Run_Time {time.time() - start_time:.4} {best_val_loss=:.4f}", end="\r")
+    return best_val_loss
 
 def infer_model(model, test_data, test_labels):
     
