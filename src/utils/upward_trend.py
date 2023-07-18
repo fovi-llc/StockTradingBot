@@ -2,8 +2,46 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
-
-
+stocks = {
+    'ABNB': 0, 'ALGN': 0, 'AMD': 0, 'CEG': 0, 'AMZN': 0,
+    'AMGN': 0, 'AEP': 0, 'ADI': 0, 'ANSS': 0, 'AAPL': 0,
+    'AMAT': 0, 'GEHC': 0, 'ASML': 0, 'TEAM': 0, 'ADSK': 0,
+    'ATVI': 0, 'ADP': 0, 'AZN': 0, 'BKR': 0, 'AVGO': 0,
+    'BIIB': 0, 'BKNG': 0, 'CDNS': 0, 'ADBE': 0, 'CHTR': 0,
+    'CPRT': 0, 'CSGP': 0, 'CRWD': 0, 'CTAS': 0, 'CSCO': 0,
+    'CMCSA': 0, 'COST': 0, 'CSX': 0, 'CTSH': 0, 'DDOG': 0,
+    'DXCM': 0, 'FANG': 0, 'DLTR': 0, 'EA': 0, 'EBAY': 0,
+    'ENPH': 0, 'ON': 0, 'EXC': 0, 'FAST': 0, 'GFS': 0,
+    'META': 0, 'FI': 0, 'FTNT': 0, 'GILD': 0, 'GOOG': 0,
+    'GOOGL': 0, 'HON': 0, 'ILMN': 0, 'INTC': 0, 'INTU': 0,
+    'ISRG': 0, 'MRVL': 0, 'IDXX': 0, 'JD': 0, 'KDP': 0,
+    'KLAC': 0, 'KHC': 0, 'LRCX': 0, 'LCID': 0, 'LULU': 0,
+    'MELI': 0, 'MAR': 0, 'MCHP': 0, 'MDLZ': 0, 'MRNA': 0,
+    'MNST': 0, 'MSFT': 0, 'MU': 0, 'NFLX': 0, 'NVDA': 0,
+    'NXPI': 0, 'ODFL': 0, 'ORLY': 0, 'PCAR': 0, 'PANW': 0,
+    'PAYX': 0, 'PDD': 0, 'PLTR': 0, 'PYPL': 0, 'PEP': 0, 'QCOM': 0,
+    'REGN': 0, 'ROST': 0, 'SIRI': 0, 'SGEN': 0, 'SBUX': 0,
+    'SNPS': 0, 'TSLA': 0, 'TXN': 0, 'TMUS': 0, 'VRSK': 0,
+    'VRTX': 0, 'WBA': 0, 'WBD': 0, 'WDAY': 0, 'XEL': 0,
+    'ZM': 0, 'ZS': 0,
+}
+def find_upward(stocks=stocks):
+    for stock_symbol in stocks.keys():
+        count = 0
+        if ma(stock_symbol, window=5): stocks[stock_symbol] +=1
+        if rsi(stock_symbol, period=14, rsi_threshold=50): stocks[stock_symbol] += 1
+        if macd(stock_symbol): stocks[stock_symbol] += 1
+        if roc(stock_symbol, period=5): stocks[stock_symbol] += 1
+        if adx(stock_symbol, period=14, adx_threshold=25): stocks[stock_symbol] += 1
+        if obv(stock_symbol, window=5): stocks[stock_symbol] += 1
+        if ichimoku(stock_symbol): stocks[stock_symbol] += 1
+        if fibonacci(stock_symbol, fibonacci_levels=[0.236, 0.382, 0.618]): stocks[stock_symbol] += 1
+        if chaikin(stock_symbol, window=3): stocks[stock_symbol] += 1
+        if parabolic_sar(stock_symbol): stocks[stock_symbol] += 1
+        print(f"{stock_symbol=}, {stocks[stock_symbol]=}")
+    stocks = dict(sorted(stocks.items(), key=lambda item: item[1], reverse=True))
+    print(stocks)
+    return stocks
 def ma(stock_symbol, window=5):
     """
     Check if a stock is in an upward trend based on historical prices using yfinance data.
