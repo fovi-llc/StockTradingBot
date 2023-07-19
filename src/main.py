@@ -10,10 +10,11 @@ import yfinance as yf
 from utils import utils, NN, upward_trend
 
 #######################
-## find upward trend ##
+## Find Upward Trend ##
 #######################
 #stocks = upward_trend.find_upward()
 #ticker = next(iter(stocks))
+#exit()
 
 ################
 ## Parameters ##
@@ -25,13 +26,11 @@ lr = 0.001
 
 peroid = '75m' #1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max
 interval = '1m' # 1m, 2m, 5m, 15m, 30m, 60m 90m, 1h, 1d, 5d, 1wk, 1mo
-ticker = "NVDA"
-
+ticker = "LULU"
 
 ####################
 ## Neural Network ##
 ####################
-
 loss_fn = tf.keras.losses.MeanSquaredError()
 optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
 
@@ -56,8 +55,8 @@ while True:
     train_data = time_series[:, ::]
     train_labels = labels[:, ::]
     
-    val_data = time_series[-10:, ::]
-    val_labels = labels[-10:, ::]
+    val_data = time_series[-1:, ::]
+    val_labels = labels[-1:, ::]
 
     prev_price = val_labels[-1]
     
@@ -98,19 +97,26 @@ while True:
     current_price = yf.Ticker(ticker).history().tail(1)['Close'].values[0]
     print()
     print(f"{ticker=} {previous_price=} {current_price=} {prediction.numpy()[0][0]=}")
-
-    # Minimize our losses
-    if (current_price < BUY_PRICE) and OWN:
-        print(f"{utils.light_blue}SELL {BUY_PRICE=:.8} @ {current_price=:.8} (+-) {utils.light_red}{current_price - BUY_PRICE=:.8}{utils.reset}")
-        OWN = False
-        TOTAL += current_price - BUY_PRICE
-        BUY_PRICE = 0.0
         
     tolerance_percentage = 0.001 # 0.1% tolerance
     if OWN:
-        if previous_price*(1+ tolerance_percentage) < current_price:
+        if previous_price*(1 + tolerance_percentage) < current_price:
             # Hold b/c just jumped large amount
             print(f"{utils.magenta}HOLD @ {BUY_PRICE=:.8} b/c {current_price=:.8} > {previous_price*(1+ tolerance_percentage)=:.8}{utils.reset}")
+
+        elif (current_price < BUY_PRICE):
+            # minimize our loss
+            print(f"{utils.light_blue}SELL {BUY_PRICE=:.8} @ {current_price=:.8} (+-) {utils.light_red}{current_price - BUY_PRICE=:.8}{utils.reset}")
+            OWN = False
+            TOTAL += current_price - BUY_PRICE
+            BUY_PRICE = 0.0
+            
+        elif previous_price*(1 - tolerance_percentage) > current_price:
+            # Sell b/c price dropped a lot
+            print(f"{utils.light_blue}SELL @ {BUY_PRICE=:.8} b/c {current_price=:.8} < {previous_price*(1 - tolerance_percentage)=:.8}{utils.reset}")
+            OWN = False
+            TOTAL += current_price - BUY_PRICE
+            BUY_PRICE = 0.0
             
         elif ((prediction.numpy()[0][0] < BUY_PRICE) or
             (prediction.numpy()[0][0] < current_price)):
@@ -119,23 +125,32 @@ while True:
             OWN = False
             TOTAL += current_price - BUY_PRICE
             BUY_PRICE = 0.0
+
+        elif prediction.numpy()[0][0] >= current_price:
+            # Hold if NN thinks price will go up
+            print(f"{utils.magenta}HOLD @ {BUY_PRICE=:.8} b/c {current_price=:.8}{utils.reset} > {prediction.numpy()[0][0]=:.8}")
         else:
-            print(f"{utils.magenta}HOLD @ {BUY_PRICE=:.8} while {current_price=:.8}{utils.reset}")
+            print(f"{utils.magenta}HOLD @ {BUY_PRICE=:.8} b/c {current_price=:.8}{utils.reset}")
             
     elif not OWN:
-        
-        if prediction.numpy()[0][0] > current_price:
+        if previous_price*(1 - tolerance_percentage) > current_price:
+            # Pass b/c price dropped a lot
+            print(f"{utils.gray}PASS  b/c {current_price=:.8} < {previous_price*(1 - tolerance_percentage)=:.8}{utils.reset}")
+            
+        elif prediction.numpy()[0][0] > current_price:
             # Buy if NN thinks stock will go up
-            print(f"{utils.light_green}BUY @ {current_price=:.8}{utils.reset}")
+            print(f"{utils.light_green}BUY @ {current_price=:.8} b/c > {prediction.numpy()[0][0]=:.8}{utils.reset}")
             OWN = True
             BUY_PRICE = current_price
+            
         elif previous_price*(1+ tolerance_percentage) < current_price:
             # Buy if jumped large amount
             print(f"{utils.light_green}BUY @ {current_price=:.8} b/c > {previous_price*(1+ tolerance_percentage)=:.8}{utils.reset}")
             OWN = True
             BUY_PRICE = current_price
+            
         elif prediction.numpy()[0][0] < current_price:
-            print(f"{utils.gray}PASS{utils.reset}")
+            print(f"{utils.gray}PASS b/c {prediction.numpy()[0][0]=:.8} < {current_price=:.8}{utils.reset}")
             
 
     pct = (((start_price + TOTAL)-start_price) / abs(start_price))* 100

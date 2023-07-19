@@ -39,9 +39,6 @@ def train_model(model, train_data, train_labels, ticker, val_data=None, val_labe
 
     best_val_loss = float('inf')
     while time.time() - start_time < duration:
-
-        # condition for early stoppage
-        if best_val_loss < 0.005: break
         
         # Train Loop
         epoch_loss = 0.0
@@ -95,7 +92,13 @@ def train_model(model, train_data, train_labels, ticker, val_data=None, val_labe
             print("\033[K", end="")   # Clear the current line
         else:
             print("                                                                          ", end="\r")
-            print(f"Time {datetime.now().time()}, Run_Time {time.time() - start_time:.4} {best_val_loss=:.4f}", end="\r")
+            print_ln = f"Time {datetime.now().time()}, Run_Time {time.time() - start_time:.4} {best_val_loss=:.4f}"
+            if best_val_loss < 0.005: print_ln += f" best_val_loss < 0.005"
+            #print(f"Time {datetime.now().time()}, Run_Time {time.time() - start_time:.4} {best_val_loss=:.4f}", end="\r")
+            print(print_ln, end="\r")
+            
+        # condition for early stoppage
+        if best_val_loss < 0.005: break
     return best_val_loss
 
 def infer_model(model, test_data, test_labels):
