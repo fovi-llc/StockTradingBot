@@ -26,7 +26,7 @@ lr = 0.001
 
 peroid = '75m' #1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max
 interval = '1m' # 1m, 2m, 5m, 15m, 30m, 60m 90m, 1h, 1d, 5d, 1wk, 1mo
-ticker = "LULU"
+ticker = "BIIB"
 
 ####################
 ## Neural Network ##
@@ -102,33 +102,40 @@ while True:
     if OWN:
         if previous_price*(1 + tolerance_percentage) < current_price:
             # Hold b/c just jumped large amount
-            print(f"{utils.magenta}HOLD @ {BUY_PRICE=:.8} b/c {current_price=:.8} > {previous_price*(1+ tolerance_percentage)=:.8}{utils.reset}")
+            print(f"{utils.magenta}HOLD @ {BUY_PRICE=:.8} b/c {current_price=:.8} > {previous_price*(1 + tolerance_percentage)=:.8}{utils.reset}")
 
         elif (current_price < BUY_PRICE):
-            # minimize our loss
-            print(f"{utils.light_blue}SELL {BUY_PRICE=:.8} @ {current_price=:.8} (+-) {utils.light_red}{current_price - BUY_PRICE=:.8}{utils.reset}")
+            # minimize our LOSS
+            print(f"{utils.light_blue}SELL @ {current_price=:.8} b/c < {BUY_PRICE=:.8} (-) {utils.light_red}{current_price - BUY_PRICE=:.8}{utils.reset}")
             OWN = False
             TOTAL += current_price - BUY_PRICE
             BUY_PRICE = 0.0
             
         elif previous_price*(1 - tolerance_percentage) > current_price:
             # Sell b/c price dropped a lot
-            print(f"{utils.light_blue}SELL @ {BUY_PRICE=:.8} b/c {current_price=:.8} < {previous_price*(1 - tolerance_percentage)=:.8}{utils.reset}")
+            print(f"{utils.light_blue}SELL @ {current_price=:.8} b/c < {previous_price*(1 - tolerance_percentage)=:.8} (+-) {current_price - BUY_PRICE=:.8}{utils.reset}")
             OWN = False
             TOTAL += current_price - BUY_PRICE
             BUY_PRICE = 0.0
             
-        elif ((prediction.numpy()[0][0] < BUY_PRICE) or
-            (prediction.numpy()[0][0] < current_price)):
-            # Sell if our prediction is less than our BUY_PRICE or current_price
-            print(f"{utils.light_blue}SELL {BUY_PRICE=:.8} @ {current_price=:.8} (+-) {current_price - BUY_PRICE=:.8}{utils.reset}")
+        elif prediction.numpy()[0][0] < BUY_PRICE:
+            # Sell if our prediction is less than our BUY_PRICE
+            print(f"{utils.light_blue}SELL @ {current_price=:.8} b/c {prediction.numpy()[0][0]=:.8} < {BUY_PRICE=:.8} @ (+-) {current_price - BUY_PRICE=:.8}{utils.reset}")
+            OWN = False
+            TOTAL += current_price - BUY_PRICE
+            BUY_PRICE = 0.0
+
+        elif (prediction.numpy()[0][0] < current_price):
+            # Sell if our prediction is less than our current_price
+            print(f"{utils.light_blue}SELL @ {current_price=:.8} b/c {prediction.numpy()[0][0]=:.8} < {current_price=:.8} @ (+-) {current_price - BUY_PRICE=:.8}{utils.reset}")
             OWN = False
             TOTAL += current_price - BUY_PRICE
             BUY_PRICE = 0.0
 
         elif prediction.numpy()[0][0] >= current_price:
             # Hold if NN thinks price will go up
-            print(f"{utils.magenta}HOLD @ {BUY_PRICE=:.8} b/c {current_price=:.8}{utils.reset} > {prediction.numpy()[0][0]=:.8}")
+            print(f"{utils.magenta}HOLD @ {BUY_PRICE=:.8} b/c {current_price=:.8} > {prediction.numpy()[0][0]=:.8}{utils.reset} ")
+        
         else:
             print(f"{utils.magenta}HOLD @ {BUY_PRICE=:.8} b/c {current_price=:.8}{utils.reset}")
             
