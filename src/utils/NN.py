@@ -5,6 +5,7 @@ from datetime import datetime
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, BatchNormalization, Attention
+from tensorflow.keras import layers, regularizers, Model
 from tensorflow.keras import regularizers
 
 class Attention(tf.keras.layers.Layer):
@@ -21,6 +22,14 @@ class Attention(tf.keras.layers.Layer):
         weighted_sum = tf.reduce_sum(inputs * a, axis=1)
         return weighted_sum
 
+def attention_mechanism(inputs, time_steps):
+    attention_weights = layers.Dense(time_steps, activation='softmax')(inputs)
+    attention_weights = layers.Lambda(lambda x: tf.expand_dims(x, axis=-1))(attention_weights)
+    attention_weights = layers.Lambda(lambda x: tf.transpose(x, perm=[0, 2, 1]))(attention_weights)  # Transpose attention weights
+    weighted_sum = layers.Multiply()([inputs, attention_weights])
+    context_vector = layers.Lambda(lambda x: tf.reduce_sum(x, axis=1))(weighted_sum)
+    return context_vector
+
 def get_model(input_shape):
     inputs = tf.keras.Input(shape=input_shape)
     lstm = tf.keras.layers.LSTM(units=input_shape[0], return_sequences=True)(inputs)
@@ -29,6 +38,27 @@ def get_model(input_shape):
     dense = tf.keras.layers.Dense(units=32, activation='relu', kernel_regularizer=regularizers.l2(0.001))(bn1)
     bn2 = BatchNormalization()(dense)
     outputs = tf.keras.layers.Dense(units=1)(bn2)
+
+    #inputs = tf.keras.Input(shape=input_shape)
+    #lstm = tf.keras.layers.LSTM(units=input_shape[0], return_sequences=True)(inputs)
+    #bn1 = BatchNormalization()(lstm)
+    #
+    #lstm2 = tf.keras.layers.LSTM(units=64, return_sequences=True)(bn1)
+    #bn2 = BatchNormalization()(lstm2)
+    #
+    #lstm3 = tf.keras.layers.LSTM(units=128, return_sequences=True)(bn2)
+    #bn3 = BatchNormalization()(lstm3)
+    #
+    #lstm4 = tf.keras.layers.LSTM(units=64, return_sequences=True)(bn3)
+    #bn4 = BatchNormalization()(lstm4)
+    #
+    #lstm5 = tf.keras.layers.LSTM(units=input_shape[0], return_sequences=True)(bn4)
+    #attention = Attention([input_shape[0], input_shape[0]])(lstm5)
+    #bn5 = BatchNormalization()(attention)
+    #
+    #dense = tf.keras.layers.Dense(units=64, activation='relu', kernel_regularizer=regularizers.l2(0.001))(bn5)
+    #bn4 = BatchNormalization()(dense)
+    #outputs = tf.keras.layers.Dense(units=1)(bn4)
 
     model = tf.keras.Model(inputs=inputs, outputs=outputs)
     return model
@@ -72,7 +102,7 @@ def train_model(model, train_data, train_labels, ticker, val_data=None, val_labe
             if avg_val_loss < best_val_loss:
                 print_ln += f"\nVal_Loss improved from {best_val_loss:.4f} to {avg_val_loss:.4f}"
                 best_val_loss = avg_val_loss
-                model.save_weights(f"{ticker}.best_weights.h5")
+                model.save_weights(f".weights/{ticker}.best_weights.h5")
             else:
                 print_ln += f"\nVal_Loss did not improve from {best_val_loss:.4f}"
         else:
@@ -81,25 +111,25 @@ def train_model(model, train_data, train_labels, ticker, val_data=None, val_labe
                 #print(f"Loss improved from {best_val_loss:.4f} to {avg_train_loss:.4f}", end="\r")
                 print_ln += f"\nLoss improved from {best_val_loss:<5.4f} to {avg_train_loss:<5.4f}"
                 best_val_loss = avg_train_loss
-                model.save_weights(f"{ticker}.best_weights.h5")
+                model.save_weights(f".weights/{ticker}.best_weights.h5")
             else:
                 print_ln += f"\nTrain_Loss did not improve from {best_val_loss:.4f}"
 
         
         if verbose:
             print(print_ln)
-            print("\033[2A", end="")  # Move the cursor 2 lines up
-            print("\033[K", end="")   # Clear the current line
+            #print("\033[2A", end="")  # Move the cursor 2 lines up
+            #print("\033[K", end="")   # Clear the current line
         else:
             print("                                                                          ", end="\r")
-            print_ln = f"Time {datetime.now().time()}, Run_Time {time.time() - start_time:.4} {best_val_loss=:.4f}"
+            print_ln = f"Time {datetime.now().time()}, Run_Time {time.time() - start_time:.4} {avg_train_loss=:.4f} {best_val_loss=:.4f}"
             if best_val_loss < 0.005: print_ln += f" best_val_loss < 0.005"
             #print(f"Time {datetime.now().time()}, Run_Time {time.time() - start_time:.4} {best_val_loss=:.4f}", end="\r")
             print(print_ln, end="\r")
             
         # condition for early stoppage
         if best_val_loss < 0.005: break
-    return best_val_loss
+    return best_val_loss.numpy()
 
 def infer_model(model, test_data, test_labels):
     

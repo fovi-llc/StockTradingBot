@@ -1,7 +1,11 @@
 import numpy as np
 import pandas as pd
 import yfinance as yf
+from datetime import datetime
 
+light_green = '\033[92m'
+light_blue = '\033[94m'
+reset = '\033[0m'
 stocks = {
     'ABNB': 0, 'ALGN': 0, 'AMD': 0, 'CEG': 0, 'AMZN': 0,
     'AMGN': 0, 'AEP': 0, 'ADI': 0, 'ANSS': 0, 'AAPL': 0,
@@ -41,7 +45,24 @@ def find_upward(stocks=stocks):
         print(f"{stock_symbol=}, {stocks[stock_symbol]=}")
     stocks = dict(sorted(stocks.items(), key=lambda item: item[1], reverse=True))
     print(stocks)
+    for key, value in stocks.items():
+        # Fetch historical stock data using yfinance
+        stock_data = yf.Ticker(key)
+        stock_data = stock_data.history(period="1d", interval="1m")
+            
+        # Extract the open and close prices for today
+        open_price = stock_data['Open'][0]
+        close_price = stock_data['Close'][-1]
+
+        # Calculate the percentage gain or loss
+        percentage_change = ((close_price - open_price) / open_price) * 100
+        if percentage_change > 0:
+            print(f"{key=} {value=} {open_price=:.4f} {close_price=:.4f} {light_green}{percentage_change=:.4f}{reset}")
+        else:
+            print(f"{key=} {value=} {open_price=:.4f} {close_price=:.4f} {light_blue}{percentage_change=:.4f}{reset}")
     return stocks
+
+
 def ma(stock_symbol, window=5):
     """
     Check if a stock is in an upward trend based on historical prices using yfinance data.
