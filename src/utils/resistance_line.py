@@ -33,8 +33,9 @@ def draw_resistance_line(ticker, peroid, interval):
     plt.tight_layout()
     plt.show(block=False)
 
-def plot_metrics_with_resistance(ticker, peroid, interval):
-    data = yf.download(ticker, period=peroid, interval=interval, progress=False)
+#def plot_metrics_with_resistance(ticker, peroid, interval):
+def plot_metrics_with_resistance(ticker, data):
+    #data = yf.download(ticker, period=peroid, interval=interval, progress=False)
     minute_data = data.reset_index().to_dict('records')
     prices = np.array([point['Close'] for point in minute_data])
     resistance_line = find_resistance_line(prices)
@@ -143,8 +144,8 @@ def calculate_bollinger_bands(prices, window=20, k=2):
     lower_band = rolling_mean - k * rolling_std
     return upper_band, lower_band
 
-def above_or_below_resistance_line(ticker, peroid, interval):
-    data = yf.download(ticker, period=peroid, interval=interval, progress=False)
+def above_or_below_resistance_line(ticker, data):
+    #data = yf.download(ticker, period=peroid, interval=interval, progress=False)
     minute_data = data.reset_index().to_dict('records')
     prices = np.array([point['Close'] for point in minute_data])
     resistance_line = find_resistance_line(prices)

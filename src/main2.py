@@ -8,8 +8,6 @@ import matplotlib.pyplot as plt
 from utils import utils, upward_trend, resistance_line
 
 
-
-
 ################
 ## Parameters ##
 ################
@@ -39,16 +37,18 @@ while True:
     ##########################
     ## Plot Resistance_line ##
     ##########################
-    resistance_line.plot_metrics_with_resistance(ticker, peroid, interval)
-    prices, volume, RSIs, macd, bollinger_bands = resistance_line.above_or_below_resistance_line(ticker, peroid, interval)
+    data = yf.download(ticker, period=peroid, interval=interval, progress=False)
+    resistance_line.plot_metrics_with_resistance(ticker, data)
+    prices, volume, RSIs, macd, bollinger_bands = resistance_line.above_or_below_resistance_line(ticker, data)
 
+    RESISTANCE_LINE = RSIs
     current_price = yf.Ticker(ticker).history().tail(1)['Close'].values[0]
-    print(f"{prices[-10:]=}")
+    print(f"{RESISTANCE_LINE[-10:]=}")
 
     #################
     ## Trade Logic ##
     #################
-    if prices[-1] == "Below":
+    if RESISTANCE_LINE[-1] == "Below":
         
         if (CASH - current_price) > 0:
         
@@ -57,9 +57,9 @@ while True:
 
             print(f"{utils.light_green}BUY @ {current_price=:.4f} with {CASH=:.4f} left{utils.reset}")
             
-        else: print(f"{prices[-1]=} cannot buy b/c {(CASH - current_price) > 0=:.4f}")
+        else: print(f"{RESISTANCE_LINE[-1]=} cannot buy b/c {(CASH - current_price) > 0=:.4f}")
 
-    elif prices[-1] == "Above":
+    elif RESISTANCE_LINE[-1] == "Above":
         if len(BUY_PRICES) > 0:
 
             TOTAL += current_price - BUY_PRICES[0]
@@ -68,7 +68,7 @@ while True:
             print(f"{utils.light_blue}SELL @ {current_price=:.4f} (+-) {current_price - BUY_PRICES[0]=:.4f} {CASH=:.4f}{utils.reset}")
             BUY_PRICES = BUY_PRICES[1:]
             
-        else: print(f"{utils.gray}{prices[-1]=} cannot sell b/c {len(BUY_PRICES) > 0=}{utils.reset}")
+        else: print(f"{utils.gray}{RESISTANCE_LINE[-1]=} cannot sell b/c {len(BUY_PRICES) > 0=}{utils.reset}")
 
     else: print("THIS SHOULD NEVER HAPPEN")
 

@@ -2,4 +2,4 @@
 __pycache__
 *.csv
 *.h5
-.weights
+src/.*
