@@ -9,6 +9,7 @@ import yfinance as yf
 ## Resistance Line ##
 #####################
 
+
 def find_resistance_line(prices):
     n_minutes = len(prices)
     coefficients = np.polyfit(range(n_minutes), prices, 1)
@@ -59,7 +60,7 @@ def plot_metrics_with_resistance(ticker, data):
     plt.figure(figsize=(8, 12))
     
     plt.subplot(5, 1, 1)
-    plt.plot(data.index, prices, label='Price', color='b', marker='o')
+    plt.plot(data.index, prices, label='Price', color='b', marker='.')
     plt.plot(data.index, resistance_line, label='Resistance Line', linestyle='--', color='r')
     plt.title(f'Price and Resistance Line for {ticker}')
     plt.xlabel('Timestamp')
@@ -67,7 +68,7 @@ def plot_metrics_with_resistance(ticker, data):
     plt.legend()
     
     plt.subplot(5, 1, 2)
-    plt.plot(data.index, volume, label='Volume', color='purple', marker='o')
+    plt.plot(data.index, volume, label='Volume', color='purple', marker='.')
     plt.plot(data.index, volume_resistance_line, label='Resistance Line', linestyle='--', color='r')
     plt.title(f'Volume and Resistance Line for {ticker}')
     plt.xlabel('Timestamp')
@@ -75,7 +76,7 @@ def plot_metrics_with_resistance(ticker, data):
     plt.legend()
     
     plt.subplot(5, 1, 3)
-    plt.plot(data.index, rsi, label='RSI', color='g', marker='o')
+    plt.plot(data.index, rsi, label='RSI', color='g', marker='.')
     plt.plot(data.index, rsi_resistance_line, label='Resistance Line', linestyle='--', color='r')
     plt.title(f'Relative Strength Index (RSI) and Resistance Line for {ticker}')
     plt.xlabel('Timestamp')
@@ -83,7 +84,7 @@ def plot_metrics_with_resistance(ticker, data):
     plt.legend()
     
     plt.subplot(5, 1, 4)
-    plt.plot(data.index, macd, label='MACD', color='m', marker='o')
+    plt.plot(data.index, macd, label='MACD', color='m', marker='.')
     plt.plot(data.index, signal, label='Signal Line', linestyle='--', color='orange')
     plt.title(f'Moving Average Convergence Divergence (MACD) for {ticker}')
     plt.xlabel('Timestamp')
@@ -91,7 +92,7 @@ def plot_metrics_with_resistance(ticker, data):
     plt.legend()
     
     plt.subplot(5, 1, 5)
-    plt.plot(data.index, prices, label='Price', color='b', marker='o')
+    plt.plot(data.index, prices, label='Price', color='b', marker='.')
     plt.plot(data.index, resistance_line, label='Resistance Line', linestyle='--', color='r')
     plt.fill_between(data.index, upper_band, lower_band, alpha=0.2, color='gray')
     plt.title(f'Bollinger Bands for {ticker}')
@@ -144,7 +145,7 @@ def calculate_bollinger_bands(prices, window=20, k=2):
     lower_band = rolling_mean - k * rolling_std
     return upper_band, lower_band
 
-def above_or_below_resistance_line(ticker, data):
+def above_or_below_resistance_line(ticker, data, metric=None):
     #data = yf.download(ticker, period=peroid, interval=interval, progress=False)
     minute_data = data.reset_index().to_dict('records')
     prices = np.array([point['Close'] for point in minute_data])
@@ -162,15 +163,19 @@ def above_or_below_resistance_line(ticker, data):
     
     # Compare each price data point with the resistance line
     PRICES = ['Above' if price > resistance_line[i] else 'Below' for i, price in enumerate(prices)]
+    if metric == "prices": return PRICES
 
     # Compare each volume with the resistance line
     VOL = ['Above' if volume > volume_resistance_line[i] else 'Below' for i, volume in enumerate(volumes)]
+    if metric == "volume": return VOL
 
     # Compare each RSIs value with the resistance line
     RSI = ['Above' if value > rsi_resistance_line[i] else 'Below' for i, value in enumerate(rsi)]
+    if metric == "RSIs": return RSI
 
     # Compare each MACD value with the signal line and the resistance line
     MACD = ['Above' if macd[i] > signal[i] and prices[i] > resistance_line[i] else 'Below' for i in range(len(macd))]
+    if metric == "macd": return MACD
 
     # Compare each price with the resistance line, upper band, and lower band
     bollinger_bands = []
@@ -185,5 +190,6 @@ def above_or_below_resistance_line(ticker, data):
             bollinger_bands.append('Below')
         else:
             bollinger_bands.append('Equal to Resistance Line')
+    if metric == "bollinger_bands": return bollinger_bands
     
     return PRICES, VOL, RSI, MACD, bollinger_bands
