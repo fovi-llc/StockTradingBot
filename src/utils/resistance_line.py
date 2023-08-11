@@ -16,10 +16,10 @@ def find_resistance_line(prices):
     resistance_line = np.polyval(coefficients, range(n_minutes))
     return resistance_line
 
-def draw_resistance_line(ticker, peroid, interval):
+def draw_resistance_line(ticker, peroid, interval, key="Close"):
     data = yf.download(ticker, period=peroid, interval=interval, progress=False)
     minute_data = data.reset_index().to_dict('records')
-    prices = np.array([point['Close'] for point in minute_data])
+    prices = np.array([point[key] for point in minute_data])
     timestamps = np.array([point['Datetime'] for point in minute_data])
     resistance_line = find_resistance_line(prices)
 
@@ -33,6 +33,55 @@ def draw_resistance_line(ticker, peroid, interval):
     plt.grid(True)
     plt.tight_layout()
     plt.show(block=False)
+
+def plot_ask_bid(ticker, data):
+    minute_data = data.reset_index().to_dict('records')
+    ask_prices = np.array([point['ask_price'] for point in minute_data])
+    bid_prices = np.array([point['bid_price'] for point in minute_data])
+    ask_resistance_line = find_resistance_line(ask_prices)
+    bid_resistance_line = find_resistance_line(bid_prices)
+
+    # close plot
+    plt.close()
+    
+    # Plot the data and metrics on separate subplots
+    plt.figure(figsize=(8, 12))
+    
+    plt.subplot(5, 1, 1)
+    plt.plot(data.index, ask_prices, label='Ask Price', color='b', marker='.')
+    plt.plot(data.index, ask_resistance_line, label='Ask Resistance Line', linestyle='--', color='r')
+    plt.title(f'Ask Price and Ask Resistance Line for {ticker}')
+    plt.xlabel('Timestamp')
+    plt.ylabel('Ask Price')
+    plt.legend()
+
+    plt.subplot(5, 1, 2)
+    plt.plot(data.index, bid_prices, label='Bid Price', color='b', marker='.')
+    plt.plot(data.index, bid_resistance_line, label='Bid Resistance Line', linestyle='--', color='r')
+    plt.title(f'Bid Price and Bid Resistance Line for {ticker}')
+    plt.xlabel('Timestamp')
+    plt.ylabel('Bid Price')
+    plt.legend()
+
+    plt.subplot(5, 1, 3)
+    plt.plot(data.index, bid_prices, label='Bid Price', color='b', marker='.')
+    plt.plot(data.index, ask_resistance_line, label='Ask Resistance Line', linestyle='--', color='r')
+    plt.title(f'Bid Price and Ask Resistance Line for {ticker}')
+    plt.xlabel('Timestamp')
+    plt.ylabel('Bid Price')
+    plt.legend()
+
+    plt.subplot(5, 1, 4)
+    plt.plot(data.index, ask_prices, label='Ask Price', color='b', marker='.')
+    plt.plot(data.index, bid_resistance_line, label='Bid Resistance Line', linestyle='--', color='r')
+    plt.title(f'Ask Price and Bid Resistance Line for {ticker}')
+    plt.xlabel('Timestamp')
+    plt.ylabel('Ask Price')
+    plt.legend()
+
+    plt.tight_layout()
+    plt.show(block=False)
+    plt.pause(2)
 
 #def plot_metrics_with_resistance(ticker, peroid, interval):
 def plot_metrics_with_resistance(ticker, data):
@@ -145,14 +194,15 @@ def calculate_bollinger_bands(prices, window=20, k=2):
     lower_band = rolling_mean - k * rolling_std
     return upper_band, lower_band
 
-def above_or_below_resistance_line(ticker, data, metric=None):
+def above_or_below_resistance_line(ticker, data, metric=None, key="Close"):
     #data = yf.download(ticker, period=peroid, interval=interval, progress=False)
     minute_data = data.reset_index().to_dict('records')
-    prices = np.array([point['Close'] for point in minute_data])
+    prices = np.array([point[key] for point in minute_data])
     resistance_line = find_resistance_line(prices)
-    
-    volumes = np.array([point['Volume'] for point in minute_data])
-    volume_resistance_line = find_resistance_line(volumes)
+
+    if metric == "volume":
+        volumes = np.array([point['Volume'] for point in minute_data])
+        volume_resistance_line = find_resistance_line(volumes)
     
     rsi = calculate_rsi(prices)
     rsi_resistance_line = find_resistance_line(rsi)

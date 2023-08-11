@@ -29,6 +29,83 @@ light_gray = '\033[37m'
 white = '\033[37m'
 reset = '\033[0m'
 
+def collect_crypto_data(symbol, min_units=1, max_units=1, df=None):
+
+    if df is None:
+        df = pd.DataFrame(columns=['Datetime', 'ask_price', 'bid_price'])
+
+    while True:
+        quote = robin_stocks.crypto.get_crypto_quote(symbol)
+        
+        ask_price = float(quote["ask_price"])
+        bid_price = float(quote["bid_price"])
+        updated_at = quote["updated_at"]
+        
+        new_row = {'Datetime': pd.to_datetime(updated_at), 'ask_price': ask_price, 'bid_price': bid_price}
+
+        # Check if the new row already exists in the DataFrame
+        if new_row['Datetime'] not in df['Datetime'].values:
+            df = df.append(new_row, ignore_index=True)
+            df.sort_values(by='Datetime', inplace=True)
+            df.reset_index(drop=True, inplace=True)
+
+        # remove first element if too long
+        if len(df) > max_units: df = df.iloc[1:]
+
+        # exit loop
+        if len(df) >= min_units: break
+        
+    return df
+
+def collect_stock_data(symbol, min_units=1, max_units=1, downtime=1, df=None):
+    # Get the current time in struct_time format
+    current_time_struct = time.localtime()
+
+    # Extract hour and minute from the struct_time
+    current_hour = current_time_struct.tm_hour
+    current_minute = current_time_struct.tm_min
+
+    # Define the target time (13:00)
+    target_hour = 13
+    target_minute = 0
+    
+    if df is None:
+        df = pd.DataFrame(columns=['Datetime', 'ask_price', 'bid_price'])
+
+    while True:
+       #if (current_hour, current_minute) >= (target_hour, target_minute):
+       #    #print("It's past 1 PM.")
+       #    quote = robin_stocks.get_latest_price(symbol, priceType=None, includeExtendedHours=True)[0]
+       #    ask_price = float(quote)
+       #    bid_price = float(quote)
+       #    updated_at = int(time.time())
+       #else:
+            #print("It's not yet 1 PM.")
+        quote = robin_stocks.stocks.get_quotes(symbol)[0]
+
+        ask_price = float(quote["ask_price"])
+        bid_price = float(quote["bid_price"])
+        updated_at = quote["updated_at"]
+        
+        new_row = {'Datetime': pd.to_datetime(updated_at), 'ask_price': ask_price, 'bid_price': bid_price}
+
+        # Check if the new row already exists in the DataFrame
+        if new_row['Datetime'] not in df['Datetime'].values:
+            df = df.append(new_row, ignore_index=True)
+            df.sort_values(by='Datetime', inplace=True)
+            df.reset_index(drop=True, inplace=True)
+
+        # remove first element if too long
+        if len(df) > max_units: df = df.iloc[1:]
+
+        # sleep
+        time.sleep(downtime)
+        
+        # exit loop
+        if len(df) >= min_units: break
+        
+    return df
+    
 def sell_crypto(symbol):
     # get latest prices
     quote = robin_stocks.crypto.get_crypto_quote(symbol)
@@ -74,21 +151,20 @@ def login():
                                mfa_code=totp,
                                expiresIn=86400,)
 
-def get_user_input(symbol='DOGE',
+def get_user_input(start_time=time.time(),
+                   symbol='DOGE',
                    interval='15second',
                    span='hour',
                    UNITS=1,
                    SELL_ALL=False,
                    METRIC='prices',
                    plot_metrics=True,
-                   PURCHASE=True):
-    total_time = 15
-
-    start_time = time.time()
+                   PURCHASE=True,
+                  ):
+    total_time = 10
+    
     while True:
         time_left = total_time - (time.time() - start_time)
-        if time_left <= 0:
-            break
 
         print(f"  {time_left:.0f}/{total_time:.0f} (Y/N) to enter input mode ", end="\r")
 
@@ -159,6 +235,9 @@ def get_user_input(symbol='DOGE',
                     else: PURCHASE = True
                     print(f"UPDATE: {PURCHASE=}")
                 break
+            
+        if time_left <= 0:
+            break
     return symbol, interval, span, UNITS, SELL_ALL, METRIC, plot_metrics, PURCHASE
 
 def process_user_input(input_str):
@@ -196,6 +275,49 @@ def get_crypto_data(symbol="DOGE", interval='15second', span='hour'):
     data["Low"] = np.array(data["Low"], dtype=np.float64)
     data["Volume"] = np.array(data["Volume"], dtype=np.float64)
 
+    return data
+
+def get_rh_stock_data(symbol="AAPL", interval='5minute', span='hour'):
+    data = robin_stocks.stocks.get_stock_historicals(symbol,
+                                                     interval=interval,
+                                                     span=span,
+                                                     bounds='regular',
+                                                     info=None)
+    data = pd.DataFrame(data)
+    data.rename(columns={
+        'begins_at': 'Datetime',
+        'open_price': 'Open',
+        'close_price': 'Close',
+        'high_price': 'High',
+        'low_price': 'Low',
+        'volume': 'Volume',
+        'session': 'Session',
+        'interpolated': 'Interpolated',
+        'symbol': 'Symbol'
+    }, inplace=True)
+
+    
+    
+    data['Datetime'] = pd.to_datetime(data['Datetime'])
+    data.sort_values(by='Datetime', inplace=True)
+
+    # Reset the index (optional but recommended)
+    data.reset_index(drop=True, inplace=True)
+
+    # cast everything from string to float
+    data["Open"] = np.array(data["Open"], dtype=np.float64)
+    data["Close"] = np.array(data["Close"], dtype=np.float64)
+    data["High"] = np.array(data["High"], dtype=np.float64)
+    data["Low"] = np.array(data["Low"], dtype=np.float64)
+    data["Volume"] = np.array(data["Volume"], dtype=np.float64)
+
+    # replace the last peice of data with the ask price
+    latest = robin_stocks.stocks.get_stock_quote_by_id(symbol)
+    ask_price = float(latest["ask_price"])
+    bid_price = float(latest["bid_price"])
+    avg_price = (ask_price + bid_price) / 2
+    data.at[data.index[-1], 'Close'] = avg_price
+    
     return data
 
 def get_stock_data(symbol: str,

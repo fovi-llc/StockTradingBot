@@ -11,11 +11,49 @@ import robin_stocks.robinhood as robin_stocks
 
 from utils import utils, NN, upward_trend, resistance_line
 
+utils.login()
 
-symbols = ['BTC', 'ETH', 'SOL', 'DOGE' "SHIB", 'AVAX', 'ETC', 'UNI', 'LTC', 'LINK', 'XLM', 'BCH', 'XTZ', 'AAVE', 'COMP']
+#data = utils.collect_crypto_data("XLM", min_units=15, max_units=240, df=None)
+#while True:
+#    data = utils.collect_crypto_data("XLM", min_units=15, max_units=240, df=data)
+#    resistance_line.plot_ask_bid("XLM", data)
+#    time.sleep(10)
+#    
+#input()
+#exit()
 
+#symbols = ["AAPL", "GOOGL", "NVDA", "PLTR", "TSLA", "NIO", "AMD"]
+#
+#for symbol in symbols:
+#    quote = robin_stocks.stocks.get_quotes(symbol, info=None)[0]
+#    ask = float(quote["ask_price"])
+#    bid = float(quote["bid_price"])
+#    spread = ask - bid
+#    spread_pct = spread / bid
+#    
+#    print(f"{symbol=} {spread=} {spread_pct=}")
+#print()
+
+symbols = ['BTC', 'ETH', 'DOGE', 'SHIB', 'AVAX', 'ETC', 'UNI', 'LTC', 'LINK', 'XLM', 'BCH', 'XTZ', 'AAVE', 'COMP']
+spread_pcts = []
+for symbol in symbols:
+    quote = robin_stocks.crypto.get_crypto_quote(symbol)
+    ask = float(quote["ask_price"])
+    bid = float(quote["bid_price"])
+    spread = ask - bid
+    spread_pct = spread / bid
+    spread_pcts.append(spread_pct)
+    
+    print(f"{symbol=} {spread=} {spread_pct=}")
+
+argmin = np.argmin(spread_pcts)
+
+print(f"MIN SPREAD {symbols[argmin]} {spread_pcts[argmin]}")
+exit()
+    
 def main():
     symbol = 'XLM' # 'BTC', 'ETH', 'SOL', 'DOGE' "SHIB", 'AVAX', 'ETC', 'UNI', 'LTC', 'LINK', 'XLM', 'BCH', 'XTZ', 'AAVE', 'COMP',
+    symbol = 'DOGE'
     interval='15second'
     span='hour'
 
@@ -87,25 +125,13 @@ def main():
     METRIC = "prices" # prices, volume, RSIs, macd, bollinger_bands
     
         
-    symbol = 'XLM'
     print(f"Processing symbol: {symbol}")
 
     start_cash = CASH
     start_price = np.array(utils.get_crypto_data(symbol, interval, span)['Close'])[-1]
-    
-    while True:
 
-        ##########
-        ## Wait ##
-        ##########
-        symbol, interval, span, UNITS, SELL_ALL, METRIC, plot_metrics, PURCHASE = utils.get_user_input(symbol=symbol,
-                                                                                                       interval=interval,
-                                                                                                       span=span,
-                                                                                                       UNITS=UNITS,
-                                                                                                       SELL_ALL=SELL_ALL,
-                                                                                                       METRIC=METRIC,
-                                                                                                       plot_metrics=plot_metrics,
-                                                                                                       PURCHASE=PURCHASE)
+    start_time = time.time()
+    while True:
 
         data = utils.get_crypto_data(symbol, interval, span)
         current_price = np.array(data['Close'])[-1]
@@ -354,6 +380,21 @@ def main():
         print()
 
         if SELL_ALL and len(BUY_PRICES) == 0: exit()
+
+        ##########
+        ## Wait ##
+        ##########
+        symbol, interval, span, UNITS, SELL_ALL, METRIC, plot_metrics, PURCHASE = utils.get_user_input(start_time=start_time,
+                                                                                                       symbol=symbol,
+                                                                                                       interval=interval,
+                                                                                                       span=span,
+                                                                                                       UNITS=UNITS,
+                                                                                                       SELL_ALL=SELL_ALL,
+                                                                                                       METRIC=METRIC,
+                                                                                                       plot_metrics=plot_metrics,
+                                                                                                       PURCHASE=PURCHASE)
+        # reset time
+        start_time = time.time()
         
 if __name__ == "__main__":
     main()
