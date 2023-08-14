@@ -13,11 +13,6 @@ from utils import utils, NN, upward_trend, resistance_line
 
 utils.login()
 
-#while True:
-#    quote = robin_stocks.get_latest_price("AAPL", priceType=None, includeExtendedHours=True)
-#    print(quote)
-#    time.sleep(1)
-
 symbols = ["AAPL", "GOOGL", "NVDA", "PLTR", "TSLA", "NIO", "AMD", "AMZN", "MSFT"]
 symbols = [
     'ABNB', 'ALGN', 'AMD', 'CEG', 'AMZN', 'AMGN', 'AEP', 'ADI', 'ANSS', 'AAPL',
@@ -47,7 +42,6 @@ print(f"MIN SPREAD {symbols[argmin]} {spread_pcts[argmin]}")
 print()
 
 
-    
 def main():
     symbol = symbols[argmin]
     interval='5minute'
@@ -75,7 +69,7 @@ def main():
     print("####################")
     print("## GATHERING DATA ##")
     print("####################")
-    data = utils.collect_stock_data(symbol, min_units=15, max_units=60, downtime=10, df=None)
+    data = utils.collect_stock_data(symbol, min_units=15, max_units=20, downtime=10, df=None)
     
     plot_metrics = True
     BUY_PRICES = []
@@ -88,6 +82,8 @@ def main():
     SELL_ALL = False
     PURCHASE = True
     METRIC = "prices" # prices, volume, RSIs, macd, bollinger_bands
+    min_units=15
+    max_units=40
     
         
     print(f"Processing symbol: {symbol}")
@@ -101,7 +97,7 @@ def main():
 
         #data = utils.get_rh_stock_data(symbol, interval, span)
         #current_price = np.array(data['Close'])[-1]
-        data = utils.collect_stock_data(symbol, min_units=15, max_units=60, downtime=0, df=data)
+        data = utils.collect_stock_data(symbol, min_units=min_units, max_units=max_units, downtime=0, df=data)
         current_price = np.array(data['ask_price'])[-1]
         
         #############
