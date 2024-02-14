@@ -11,10 +11,10 @@ from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.layers import Input, LSTM, Dense, Dropout, Concatenate, Permute, Reshape, Multiply, Flatten
 from tensorflow.keras.models import Model
 
-SEQUENCE_LEN = 10
+SEQUENCE_LEN = 14
 
 tickers = [
-    "AAPL",]#"MSFT","GOOGL","AMZN","TSLA","META","NVDA","ADBE","CRM","ORCL","INTC","IBM",
+    "AAPL","MSFT","GOOGL","AMZN","TSLA","META","NVDA","ADBE","CRM","ORCL","INTC","IBM",]
 #    "QCOM","CSCO","ASML","TXN","AMD","SAP","SHOP","AVGO","INTU","SNOW","SQ","ZM","NFLX",  
 #    "PYPL","GOOG","MS","V","MA","JPM","GS","WMT","TGT","HD","LOW","NKE","DIS",
 #    "CMCSA","PEP","KO","T","VZ","AAP","F",
@@ -53,10 +53,68 @@ def calculate_bollinger_bands(data, window=10, num_of_std=2):
     lower_band = rolling_mean - (rolling_std * num_of_std)
     return upper_band, lower_band
 
+corr_sum = []
+for ticker in tickers:
+    data = yf.download(ticker, period="60d", interval="5m")
 
+    # Calculate the technical indicators
+    close = data['Close']
+    upper, lower = calculate_bollinger_bands(close, window=SEQUENCE_LEN, num_of_std=2)
+    width = upper - lower
+    rsi = calculate_rsi(close, window=SEQUENCE_LEN)
+    roc = calculate_roc(close, periods=SEQUENCE_LEN)
+    volume = data['Volume']
+    diff = data['Close'].diff(1)
+    percent_change_close = data['Close'].pct_change() * 100
+
+    # Create a DataFrame for the current ticker
+    ticker_df = pd.DataFrame({
+        ticker+'_close': close,
+        ticker+'_rsi': rsi,
+        ticker+'_roc': roc,
+        ticker+'_volume': volume,
+        ticker+'_diff': diff,
+        ticker+'_width': width,
+        ticker+'_percent_change_close': percent_change_close,
+    }).dropna()  # Drop rows with NaN values resulting from diff and pct_change
+
+    # Normalize the features
+    MEAN = ticker_df.mean()
+    STD = ticker_df.std()
+    ticker_df = (ticker_df - MEAN) / STD
+
+    # Set threshold
+    Q1 = ticker_df.quantile(0.005)
+    Q3 = ticker_df.quantile(0.995)
+    IQR = Q3 - Q1
+
+    # Define a mask to filter out outliers
+    mask = ~((ticker_df < (Q1 - 1.5 * IQR)) | (ticker_df > (Q3 + 1.5 * IQR))).any(axis=1)
+
+    # Apply the mask to your dataframe to remove outliers
+    cleaned_df = ticker_df[mask]
+
+    # Calculate the correlation matrix
+    correlation = cleaned_df.corr()
+
+    # Sum the absolute correlations with the ticker's close, excluding its own correlation
+    value = np.sum(np.abs(correlation[ticker+'_close'].drop(ticker+'_close')))
+    print(ticker, value)
+    corr_sum.append(value)
+
+# Find the index of the highest sum of correlations
+best_stock_index = np.argmax(corr_sum)
+best_stock = tickers[best_stock_index]
+
+print(f"Best stock is {best_stock}, {corr_sum[best_stock_index]}")
+
+tickers = []
+tickers.append(best_stock)
+
+    
 # List to hold data for each ticker
 ticker_data_frames = []
-
+stats = {}
 for ticker in tickers:
     # Download historical data for the ticker
     #data = yf.download(ticker, start=start_date, end=end_date)
@@ -67,9 +125,6 @@ for ticker in tickers:
     #data = yf.download(ticker, period="60d", interval="15m")
     data = yf.download(ticker, period="60d", interval="5m")
     #data = yf.download(ticker, period="7d", interval="1m")
-    print(data)
-
-    scaler = StandardScaler()
 
     # Calculate the daily percentage change
     close = data['Close']
@@ -102,7 +157,6 @@ for ticker in tickers:
         ticker+'_width': width,
         ticker+'_percent_change_close': percent_change_close,
     })
-    print(ticker_df)
 #    ticker_df = pd.DataFrame({
 #        ticker+'_close': close,
 #        ticker+'_upper': upper,
@@ -124,32 +178,58 @@ for ticker in tickers:
     
     MEAN = ticker_df.mean()
     STD = ticker_df.std()
-    print("MEAN:\n", MEAN)
-    print("STANDARD DEVIATION:\n",STD)
-    
+    #print("MEAN:\n", MEAN)
+    #print("STANDARD DEVIATION:\n",STD)
+
+    for column in MEAN.index:
+        mean_key = f"{column}_mean"
+        std_key = f"{column}_std"
+        stats[mean_key] = MEAN[column]
+        stats[std_key] = STD[column]
     
     # Normalize the training features
     ticker_df = (ticker_df - MEAN) / STD
 
     MIN = ticker_df.min()
     MAX = ticker_df.max()
-    print("MIN:\n", MIN)
-    print("MAX:\n", MAX)
-    #
+    #print("MIN:\n", MIN)
+    #print("MAX:\n", MAX)
+    
     ## Normalize the training features
     #ticker_df = (ticker_df - MIN) / (MAX - MIN)
-    #
-    #print(ticker_df.describe())
-    #print(ticker_df.corr())
+    
+    print(ticker_df.describe())
+    print(ticker_df.corr())
 
     pairplot = sns.pairplot(ticker_df)
-    plt.savefig(f"{ticker}_pairplot.png")
+    plt.savefig(f"pairplot/{ticker}_pairplot.png")
     plt.close()
     #exit()
-    ticker_data_frames.append(ticker_df)
+    #ticker_data_frames.append(ticker_df)
+
+    # Set threshold
+    Q1 = ticker_df.quantile(0.005)
+    Q3 = ticker_df.quantile(0.995)
+    IQR = Q3 - Q1
+
+    # Define a mask to filter out outliers
+    mask = ~((ticker_df < (Q1 - 1.5 * IQR)) | (ticker_df > (Q3 + 1.5 * IQR))).any(axis=1)
+
+    # Apply the mask to your dataframe to remove outliers
+    cleaned_df = ticker_df[mask]
+
+    print(cleaned_df.corr())
+    
+    # Now you can save the cleaned pairplot
+    pairplot_cleaned = sns.pairplot(cleaned_df)
+    pairplot_cleaned.savefig(f"pairplot/{ticker}_pairplot_cleaned.png")
+    plt.close()
+    # exit()
+    ticker_data_frames.append(cleaned_df)
 
 # Concatenate all ticker DataFrames
 percent_change_data = pd.concat(ticker_data_frames, axis=1)
+print(stats)
 
 # Remove any NaN values that may have occurred from the pct_change() calculation
 percent_change_data.replace([np.inf, -np.inf], np.nan, inplace=True)
@@ -158,16 +238,31 @@ percent_change_data.dropna(inplace=True)
 print(percent_change_data)
 
 # Function to create X-day sequences for each ticker
-def create_sequences(data, sequence_length=SEQUENCE_LEN):
+def create_sequences(data, datetime, labels, sequence_length=SEQUENCE_LEN):
     sequences = []
+    lab = []
     data_size = len(data)
     for i in range(data_size - sequence_length + 1):
-        sequences.append(data[i:i + sequence_length])
-    return np.array(sequences)
+        times = datetime[i:i + sequence_length]
+        sequence_ok = True  # A flag to indicate if the sequence is valid
+        
+        # Check if all consecutive timestamps are 5 minutes apart
+        for j in range(1, len(times)):
+            delta = times[j] - times[j-1]
+            if delta.total_seconds() != 300:
+                sequence_ok = False  # Invalidate the sequence
+                break  # No need to check further timestamps
+        
+        # Only append the sequence if all timestamps are 5 minutes apart
+        if sequence_ok:
+            sequences.append(data[i:i + sequence_length])
+            lab.append([labels[i-1], labels[i]])
+            
+    return np.array(sequences), np.array(lab)
 
 # Example trading strategy for labeling
 def define_label(data):
-    #data = (data * STD['AAPL_percent_change_close']) + MEAN['AAPL_percent_change_close']
+    #data = (data * STD[f'{tickers[0]}_close']) + MEAN[f'{tickers[0]}_close']
     return data
     
 # Shift the percentage change data to create labels
@@ -181,6 +276,7 @@ labels = labels.iloc[:-1]
 sequences_dict = {}
 sequence_labels = {}
 for ticker in tickers:
+
     # Extract close and volume data for the ticker
     close = percent_change_data[ticker+'_close'].values
 #    upper = percent_change_data[ticker+'_upper'].values
@@ -225,11 +321,15 @@ for ticker in tickers:
 #                                   #percent_momentum))
     
     # Generate sequences
-    ticker_sequences = create_sequences(ticker_data)
+    print(ticker_data)
+    datetime = percent_change_data.index.to_numpy()
+    print(datetime)
+    ticker_sequences, lab = create_sequences(ticker_data, datetime, labels[ticker+'_close'].values[SEQUENCE_LEN-1:])
+    print(f"{len(ticker_sequences)=}, {len(lab)=}, {len(ticker_sequences)==len(lab)=}")
     sequences_dict[ticker] = ticker_sequences
 
     # Align labels with sequences
-    sequence_labels[ticker] = labels[ticker+'_close'].values[SEQUENCE_LEN-1:]
+    sequence_labels[ticker] = lab #labels[ticker+'_close'].values[SEQUENCE_LEN-1:]
 
 # Combine data and labels from all tickers
 all_sequences = []
@@ -242,18 +342,22 @@ for ticker in tickers:
 # Convert to numpy arrays
 all_sequences = np.array(all_sequences)
 all_labels = np.array(all_labels)
+#all_labels = np.array([[label, label] for label in all_labels])
 
-count = {}
-for l in all_labels:
-    if l not in count.keys():
-        count[l] = 0
-    count[l] += 1
-for key in count.keys():
-    print(key, count[key])
+print(all_labels, all_labels.shape)
+
+#count = {}
+#for l in all_labels:
+#    if l not in count.keys():
+#        count[l] = 0
+#    count[l] += 1
+#for key in count.keys():
+#    print(key, count[key])
 
 # Shuffle
 np.random.seed(42)
 shuffled_indices = np.random.permutation(len(all_sequences))
+unshuffle_indices = np.argsort(shuffled_indices)
 #all_sequences = all_sequences[shuffled_indices]
 #all_labels = all_labels[shuffled_indices]
 
@@ -285,7 +389,7 @@ def attention_layer(inputs, name):
     output_attention_mul = Multiply(name='attention_mul_' + name)([inputs, a_probs])
     return output_attention_mul
 
-DROPOUT = 0.020
+DROPOUT = 0.05
 # Model architecture
 input_shape = train_sequences.shape[1:]  # Adjust based on your dataset
 inputs = Input(shape=input_shape)
@@ -311,15 +415,93 @@ dense_out = Dropout(DROPOUT)(dense_out)
 
 # Output layer
 output = Dense(1,)(dense_out)
+#hidden_dense =  Dense(10)(output1)
+#output2 = Dense(1)(hidden_dense)
+#output = Concatenate()([output1, output2])
 #output = Dense(1, activation='softmax')(dense_out)
+
+# Convert them to tensors
+MEAN_tensor = tf.constant(MEAN[f'{tickers[0]}_close'], dtype=tf.float32)
+STD_tensor = tf.constant(STD[f'{tickers[0]}_close'], dtype=tf.float32)
+
+def custom_loss(y_true, y_pred):
+    y_true = (y_true * STD_tensor) + MEAN_tensor
+    y_pred = (y_pred * STD_tensor) + MEAN_tensor
+    #return tf.reduce_mean(tf.square(y_true - y_pred))
+    return tf.reduce_mean(tf.abs(y_true - y_pred))
+
+def direction_sensitive_loss_01(y_true, y_pred):
+    # Denormalize predictions and true values
+    y_true_denorm = (y_true * STD_tensor) + MEAN_tensor
+    y_pred_denorm = (y_pred * STD_tensor) + MEAN_tensor
+    
+    # Calculate the change in true values and predicted values
+    # true_change reflects the actual movement from prev_value to current_value in y_true
+    # pred_change reflects the movement from prev_value in y_true to current_value in y_pred
+    true_change = y_true_denorm[:, 1] - y_true_denorm[:, 0]
+    pred_change = y_pred_denorm[:, 1] - y_true_denorm[:, 0]
+    
+    # Determine if the prediction got the direction right or wrong
+    direction_correct = tf.equal(tf.sign(true_change), tf.sign(pred_change))
+    
+    # Convert boolean to float for calculation (True -> 1.0, False -> 2.0 to penalize wrong direction more)
+    direction_penalty = tf.where(direction_correct, 1.0, 2.0)
+    
+    # Calculate the absolute error for the current value
+    abs_error = tf.abs(y_true_denorm[:, 1] - y_pred_denorm[:, 1])
+    
+    # Apply direction penalty to the absolute error
+    penalized_error = abs_error * direction_penalty
+    
+    # Return the mean of the penalized error
+    return tf.reduce_mean(penalized_error)
+
+def differentiable_direction_sensitive_loss(y_true, y_pred):
+    y_true_denorm = (y_true * STD_tensor) + MEAN_tensor
+    y_pred_denorm = (y_pred * STD_tensor) + MEAN_tensor
+    
+    # Calculate changes
+    true_change = y_true_denorm[:, 1] - y_true_denorm[:, 0]
+    pred_change = y_pred_denorm[:, 0] - y_true_denorm[:, 0]
+    
+    # Dot product between true change and predicted change
+    # This will be positive for correct direction predictions and negative for incorrect ones
+    direction_dot_product = true_change * pred_change
+    
+    # Use a smooth, differentiable function to penalize negative dot products (wrong directions)
+    # The exponential function ensures that wrong directions are penalized more heavily than right directions
+    #direction_penalty = tf.exp(-direction_dot_product)
+    scale_factor = 10.0  # This can be tuned
+    direction_penalty = tf.sigmoid(-scale_factor * direction_dot_product)
+    #direction_penalty = tf.nn.relu(-scale_factor * direction_dot_product)
+    
+    # Calculate the absolute error for the predicted next value
+    abs_error = tf.abs(y_true_denorm[:, 1] - y_pred_denorm[:, 0])
+    
+    # Combine absolute error with directional penalty
+    #penalized_error = abs_error * direction_penalty
+    penalized_error = abs_error + (direction_penalty - 0.5)
+    
+    return tf.reduce_mean(penalized_error)
+
+
+def dir_acc(y_true, y_pred):
+    y_true_denorm = (y_true * STD_tensor) + MEAN_tensor
+    y_pred_denorm = (y_pred * STD_tensor) + MEAN_tensor
+    true_change = y_true_denorm[:, 1] - y_true_denorm[:, 0]
+    pred_change = y_pred_denorm[:, 0] - y_true_denorm[:, 0]
+    correct_direction = tf.equal(tf.sign(true_change), tf.sign(pred_change))
+    return tf.reduce_mean(tf.cast(correct_direction, tf.float32))
+
 
 # Build and compile the model
 model = Model(inputs=[inputs], outputs=output)
 
 # Compile the model
 optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
-model.compile(optimizer=optimizer, loss='mse', metrics=['mae'])
+model.compile(optimizer=optimizer, loss=differentiable_direction_sensitive_loss, metrics=[dir_acc, 'mae'])
 
+#model.compile(optimizer=optimizer, loss='mse', metrics=['mae'])
 #model.compile(optimizer=optimizer, loss='sparse_categorical_crossentropy', metrics=['accuracy'])
 
 
@@ -328,135 +510,27 @@ model.summary()
 # Define a callback to save the best model
 checkpoint_callback_train = ModelCheckpoint(
     "best_train_model.h5",  # Filepath to save the best model
-    monitor="loss",  # Metric to monitor
+    monitor="dir_acc",  #"loss",  # Metric to monitor
     save_best_only=True,  # Save only the best model
-    mode="min",  # Minimize the monitored metric 
+    mode="max",  # Minimize the monitored metric 
     verbose=1,  # Display progress
 )
 
 # Define a callback to save the best model
 checkpoint_callback_val = ModelCheckpoint(
     "best_val_model.h5",  # Filepath to save the best model
-    monitor="val_loss",  # Metric to monitor
+    monitor="val_dir_acc", #"val_loss",  # Metric to monitor
     save_best_only=True,  # Save only the best model
-    mode="min",  # Minimize the monitored metric 
+    mode="max",  # Minimize the monitored metric 
     verbose=1,  # Display progress
 )
 
-## Define a callback to save the best model
-#checkpoint_callback_train = ModelCheckpoint(
-#    "best_train_model.h5",  # Filepath to save the best model
-#    monitor="accruacy",  # Metric to monitor
-#    save_best_only=True,  # Save only the best model
-#    mode="max",  # Minimize the monitored metric 
-#    verbose=1,  # Display progress
-#)
-#
-## Define a callback to save the best model
-#checkpoint_callback_val = ModelCheckpoint(
-#    "best_val_model.h5",  # Filepath to save the best model
-#    monitor="val_accuracy",  # Metric to monitor
-#    save_best_only=True,  # Save only the best model
-#    mode="max",  # Minimize the monitored metric 
-#    verbose=1,  # Display progress
-#)
 
 
-
-correct_percentage = []
-win_percentage = []
-while len(validation_sequences) != 0:
-    
-
-    model = Model(inputs=[inputs], outputs=output)
-    model.compile(optimizer=optimizer, loss='mse', metrics=['mae'])
-    #model.compile(optimizer=optimizer, loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-    
-    # Define a callback to save the best model
-    checkpoint_callback_val = ModelCheckpoint(
-        "best_val_model.h5",  # Filepath to save the best model
-        monitor="val_loss",  # Metric to monitor
-        save_best_only=True,  # Save only the best model
-        mode="min",  # Minimize the monitored metric 
-        verbose=1,  # Display progress
-    )
-
-    val_seq = train_sequences[-5:]
-    val_lab = train_labels[-5:]
-    
-    model.fit(train_sequences, train_labels,
-              validation_data=(val_seq, val_lab),
-              epochs=25,  # Adjust based on convergence
-              batch_size=16,
-              shuffle=True,
-              callbacks=[checkpoint_callback_val],
-              verbose=1)
-
-
-    test_seq, test_lab = validation_sequences[0], validation_labels[0]
-    validation_sequences = validation_sequences[1:]
-    validation_labels = validation_labels[1:]
-
-    test_seq = np.expand_dims(test_seq, axis=0)
-    test_lab = np.expand_dims(test_lab, axis=0)
-    train_sequences = np.append(train_sequences, test_seq, axis=0)
-    train_labels = np.append(train_labels, test_lab, axis=0)
-
-    model.load_weights("best_val_model.h5")
-    
-    #test_seq, test_lab = validation_sequences[0], validation_labels[0]
-    #test_seq = np.expand_dims(test_seq, axis=0)
-    #test_lab = np.expand_dims(test_lab, axis=0)
-
-    predictions = model.predict(test_seq)
-
-#    good = 0
-#    for pred, lab in zip(predictions, test_lab):
-#        
-#        if  np.argmax(pred) == 0 and lab == 0:
-#            good += 1
-#            print(f"{pred=}, {np.argmax(pred)=}, {lab=}, GOOD!")
-#        elif np.argmax(pred) > 0 and lab > 0:
-#            good += 1
-#            print(f"{pred=}, {np.argmax(pred)=}, {lab=}, GOOD!")
-#            
-#        else: print(f"{pred=}, {np.argmax(pred)=}, {lab=}, BAD!")
-#
-#        correct_percentage.append(good/len(predictions))
-#        print(f"{correct_percentage[-1]=}, {np.average(correct_percentage)=}")
-
-    predictions = (predictions * STD['AAPL_close']) + MEAN['AAPL_close']
-    test_lab = (test_lab * STD['AAPL_close']) + MEAN['AAPL_close']
-
-    good = 0
-    win = 0
-    for seq, pred, lab in zip(test_seq, predictions, test_lab):
-        close = (seq[-1][0] * STD['AAPL_close']) + MEAN['AAPL_close']
-        if pred > close and lab > close:
-            good += 1
-            print(close, pred, lab, "GOOD")
-        elif pred < close and lab < close:
-            good += 1
-            print(close, pred, lab, "GOOD")
-        else: print(close, pred, lab)
-
-        if pred > close and lab > close:
-            win += 1 ; print("WIN")
-        elif pred < close:
-            win += 1 ; print("WIN")
-        
-        
-        correct_percentage.append(good/len(predictions))
-        print(f"{correct_percentage[-1]=}, {np.average(correct_percentage)=}")
-
-        win_percentage.append(win/len(predictions))
-        print(f"{win_percentage[-1]=}, {np.average(win_percentage)=}")
-print(f"{np.average(correct_percentage)=}")
-print(f"{np.average(win_percentage)=}")
-
-exit()
-
+# Load Weights
 #model.load_weights("best_val_model.h5")
+
+# Train Model
 model.fit(train_sequences, train_labels,
           validation_data=(validation_sequences, validation_labels),
           epochs=500,  # Adjust based on convergence
@@ -468,32 +542,24 @@ model.fit(train_sequences, train_labels,
 
 model.load_weights("best_val_model.h5")
 # Make predictions
-predictions = model.predict(validation_sequences)
-
-pos = 0
-neg = 0
-for pred, lab in zip(predictions, validation_labels):
-    if pred > 0 and lab > 0:
-        pos += 1
-    if pred < 0 and lab < 0:
-        neg += 1
-
-print((pos + neg) / len(predictions))
+test = model.predict(test_sequences)
 
 
-close_price_mean = MEAN['AAPL_close']
-close_price_std = STD['AAPL_close']
-close_price_min = MIN['AAPL_close']
-close_price_max = MAX['AAPL_close']
+close_price_mean = MEAN[f'{tickers[0]}_close']
+close_price_std = STD[f'{tickers[0]}_close']
+close_price_min = MIN[f'{tickers[0]}_close']
+close_price_max = MAX[f'{tickers[0]}_close']
 
 good = 0
-predictions = (predictions * close_price_std) + close_price_mean
-validation_labels = (validation_labels * close_price_std) + close_price_mean
+test = (test * close_price_std) + close_price_mean
+test_labels = (test_labels * close_price_std) + close_price_mean
 
-#predictions = (predictions * (close_price_max - close_price_min)) + close_price_min
-#validation_labels = (validation_labels * (close_price_max - close_price_min)) + close_price_min
+#test = (test * (close_price_max - close_price_min)) + close_price_min
+#test_labels = (test_labels * (close_price_max - close_price_min)) + close_price_min
 
-for seq, pred, lab in zip(validation_sequences, predictions, validation_labels):
+for seq, pred, lab in zip(test_sequences, test, test_labels):
+    pred = pred[-1]
+    lab = lab[-1]
     close = (seq[-1][0] * close_price_std) + close_price_mean
     #close = (seq[-1][0] * (close_price_max - close_price_min)) + close_price_min
     if pred > close and lab > close:
@@ -505,19 +571,19 @@ for seq, pred, lab in zip(validation_sequences, predictions, validation_labels):
     else: print(close, pred, lab)
         
 
-print(good/len(predictions))
+print(good/len(test))
 
 
 
 plt.figure(figsize=(10, 6))
-plt.plot(validation_labels, label='Actual')
-plt.plot(predictions, label='Predicted')
-plt.title('Actual vs. Predicted Validationues')
+plt.plot(test_labels, label='Actual')
+plt.plot(test, label='Predicted')
+plt.title('Actual vs. Predicted Testues')
 plt.legend()
 plt.show()
 
 # Calculate additional metrics as needed
 from sklearn.metrics import r2_score
 
-r2 = r2_score(validation_labels, predictions)
+r2 = r2_score(test_labels, test)
 print(f"R-squared: {r2}")
