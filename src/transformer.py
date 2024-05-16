@@ -425,6 +425,64 @@ model = build_transformer_model(input_shape, head_size, num_heads, ff_dim, num_l
 ## CUSTOM LOSS FUNCTION ##
 ##########################
 
+def directional_mse_loss(y_true, y_pred):
+    """
+    This loss function penalizes predictions that are in the wrong direction more heavily than those that are merely inaccurate in magnitude.
+    It can be seen as an extension of the mean squared error that incorporates the directionality:
+    """
+    mean = y_true[:, 2]
+    std = y_true[:, 3]
+    
+    def unnormalize(values):
+        return values * std + mean
+
+    y_true_prev = unnormalize(y_true[:, 0])
+    y_true_next = unnormalize(y_true[:, 1])
+    y_pred_next = unnormalize(y_pred[:, 0])
+    
+    true_change = y_true_next - y_true_prev
+    pred_change = y_pred_next - y_true_prev
+
+    # Calculate squared error
+    squared_error = tf.square(y_true_next - y_pred_next)
+
+    # Check if predicted and true change have the same sign
+    same_direction = tf.equal(tf.sign(true_change), tf.sign(pred_change))
+    same_direction = tf.cast(same_direction, tf.float32)
+
+    # Penalize errors in the wrong direction more
+    direction_penalty = 1 + (1 - same_direction) * 10  # Increase the weight of wrong direction errors
+
+    directional_mse = squared_error * direction_penalty
+    return tf.reduce_mean(directional_mse)
+
+
+def directional_bce_loss(y_true, y_pred):
+    """
+    This loss function treats the problem as a classification task where the classes are "price went up" and "price went down".
+    It uses the sigmoid of the predicted change and actual change to compute a binary cross-entropy loss, which inherently captures the direction:
+    """
+    mean = y_true[:, 2]
+    std = y_true[:, 3]
+    
+    def unnormalize(values):
+        return values * std + mean
+
+    y_true_prev = unnormalize(y_true[:, 0])
+    y_true_next = unnormalize(y_true[:, 1])
+    y_pred_next = unnormalize(y_pred[:, 0])
+    
+    true_change = y_true_next - y_true_prev
+    pred_change = y_pred_next - y_true_prev
+
+    # Compute binary labels for direction
+    true_label = tf.cast(tf.greater(true_change, 0), tf.float32)
+    pred_prob = tf.sigmoid(pred_change)  # Use sigmoid to squash the output between 0 and 1
+
+    # Use binary cross-entropy
+    loss = tf.keras.losses.binary_crossentropy(true_label, pred_prob)
+    return tf.reduce_mean(loss)
+
 def custom_mae_loss(y_true, y_pred):
     y_true_next = tf.cast(y_true[:, 1], tf.float64)
     y_pred_next = tf.cast(y_pred[:, 0], tf.float64)
@@ -452,11 +510,11 @@ def dir_acc(y_true, y_pred):
 ###################
 BATCH_SIZE = 256
 SCALE = BATCH_SIZE // 16
-EPOCHS = math.ceil( (270000 // SCALE) / math.ceil(len(train_sequences) / BATCH_SIZE) )
+EPOCHS = math.ceil( (350000 // SCALE) / math.ceil(len(train_sequences) / BATCH_SIZE) )
 
 # Compile the model
 optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
-model.compile(optimizer=optimizer, loss=custom_mae_loss, metrics=[dir_acc])
+model.compile(optimizer=optimizer, loss=directional_bce_loss, metrics=[dir_acc])
 
 model.summary()
 
@@ -526,7 +584,7 @@ model.fit(train_sequences, train_labels,
           epochs=EPOCHS,
           batch_size=BATCH_SIZE,
           shuffle=True,
-          callbacks=[checkpoint_callback_train, checkpoint_callback_val, get_lr_callback(batch_size=BATCH_SIZE, epochs=EPOCHS)])
+          callbacks=[checkpoint_callback_train, checkpoint_callback_val]) #, get_lr_callback(batch_size=BATCH_SIZE, epochs=EPOCHS)])
 
 
 ########################
