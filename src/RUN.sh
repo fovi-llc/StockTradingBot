@@ -50,6 +50,9 @@ TICKERS=('AAPL' 'ABBV' 'ACN' 'ADBE' 'AEP' 'AFL' 'AIG' 'ALGN'
 #         'PYPL' 'QCOM' 'QRVO' 'ROK' 'SNPS' 'SNOW' 'SQ' 'SWKS' 
 #         'TEL' 'TXN' 'VRSN' 'WDC' 'ZM')
 
+#TICKERS=('META' 'AAPL' 'MSFT' 'AMZN' 'GOOG')
+#TICKERS=('AAPL')
+
 for ((i=0; i<100; i++))
 do
     python3 transformer.py --tickers "${TICKERS[@]}"

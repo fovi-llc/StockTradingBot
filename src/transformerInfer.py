@@ -97,6 +97,8 @@ tickers = ['AAPL','ABBV','ACN', 'ADBE','AEP','AFL','AIG','ALGN',
     
 tickers = tickers[-5:]
 
+tickers = ["AAPL"]
+
 
 stats = pd.read_csv(f"data/STATS.csv")
 ticker_data_frames = []
@@ -210,34 +212,46 @@ all_sequences = np.array(all_sequences)
 all_labels = np.array(all_labels)
 
 
-#############
-## SHUFFLE ##
-#############
+##########
+## DATA ##
+##########
+train_sequences = []
+train_labels = []
+validation_sequences = []
+validation_labels = []
+test_sequences = []
+test_labels = []
+
+for ticker in tickers:
+    sequences = sequences_dict[ticker]
+    labels = sequence_labels[ticker]
+
+    total_size = len(sequences)
+    train_size = int(total_size * 0.9)
+    val_size = int(total_size * 0.05)
+    
+    train_sequences.extend(sequences[:train_size])
+    train_labels.extend(labels[:train_size])
+    
+    validation_sequences.extend(sequences[train_size:train_size + val_size])
+    validation_labels.extend(labels[train_size:train_size + val_size])
+    
+    test_sequences.extend(sequences[train_size + val_size:])
+    test_labels.extend(labels[train_size + val_size:])
+
+# Convert lists to numpy arrays
+train_sequences = np.array(train_sequences)
+train_labels = np.array(train_labels)
+validation_sequences = np.array(validation_sequences)
+validation_labels = np.array(validation_labels)
+test_sequences = np.array(test_sequences)
+test_labels = np.array(test_labels)
+
+# Shuffle train sequences and labels
 np.random.seed(42)
-shuffled_indices = np.random.permutation(len(all_sequences))
-all_sequences = all_sequences[shuffled_indices]
-all_labels = all_labels[shuffled_indices]
-
-train_size = int(len(all_sequences) * 0.9)
-
-# Split sequences
-train_sequences = all_sequences[:train_size]
-train_labels    = all_labels[:train_size]
-
-other_sequences = all_sequences[train_size:]
-other_labels    = all_labels[train_size:]
-
-shuffled_indices = np.random.permutation(len(other_sequences))
-other_sequences = other_sequences[shuffled_indices]
-other_labels = other_labels[shuffled_indices]
-
-val_size = int(len(other_sequences) * 0.5)
-
-validation_sequences = other_sequences[:val_size]
-validation_labels = other_labels[:val_size]
-
-test_sequences = other_sequences[val_size:]
-test_labels = other_labels[val_size:]
+shuffled_indices = np.random.permutation(len(train_sequences))
+train_sequences = train_sequences[shuffled_indices]
+train_labels = train_labels[shuffled_indices]
 
 ###########################
 ## DEFINE NEURAL NETWORK ##
@@ -274,11 +288,11 @@ def build_transformer_model(input_shape, head_size, num_heads, ff_dim, num_layer
 
 # Model parameters
 input_shape = train_sequences.shape[1:]
-head_size = 256 #128 #32
-num_heads = 16 #8 #2
-ff_dim = 1024 #512 #64
-num_layers = 12 #6 #2
-dropout = 0.20
+head_size = 12 #128 #512 #256 #128 #32
+num_heads = 8 #24 #16 #8 #2
+ff_dim = 24 #512 #1024 #1024 #512 #64
+num_layers = 6 #24 #12 #6 #2
+dropout = 0.90
 
 # Build the model
 model = build_transformer_model(input_shape, head_size, num_heads, ff_dim, num_layers, dropout)
@@ -330,20 +344,22 @@ model.summary()
 model.load_weights("transformer_val_model.keras")
 
 # Make predictions
-accuracy = model.evaluate(train_sequences, train_labels)[1]
+accuracy = model.evaluate(val_sequences, val_labels)[1]
 print(accuracy)
-predictions = model.predict(train_sequences)
+predictions = model.predict(val_sequences)
+
+# Use a colorblind-friendly color palette
+colors = ['#377eb8', '#ff7f00', '#4daf4a']  # Blue, Orange, and Green
 
 plt.figure(figsize=(10, 6))
-plt.plot(train_labels[-500:, :2], label='Actual')
-plt.plot(predictions[-500:], label='Predicted')
-plt.title(f'Actual vs. Predicted Trainues with {accuracy=:.4f}')
+plt.plot(val_labels[-500:, 0], label='Actual Line 1', color=colors[0])
+plt.plot(val_labels[-500:, 1], label='Actual Line 2', color=colors[1])
+plt.plot(predictions[-500:], label='Predicted', color=colors[2])
+plt.title(f'Actual vs. Predicted Val Values with accuracy={accuracy:.4f}')
 plt.legend()
 plt.savefig(f"{ticker}_Actual_VS_Predicted.png")
-#plt.show()
+# plt.show()
 
 # Calculate additional metrics as needed
-from sklearn.metrics import r2_score
-
-r2 = r2_score(train_labels[:, 1], predictions[:, 0])
+r2 = r2_score(val_labels[:, 1], predictions[:, 0])
 print(f"R-squared: {r2}")

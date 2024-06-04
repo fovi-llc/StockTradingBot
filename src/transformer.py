@@ -13,7 +13,7 @@ import tensorflow as tf
 from tensorflow.keras.models import Model
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.callbacks import ModelCheckpoint
-from tensorflow.keras.layers import Input, LSTM, Dense, Dropout, Concatenate, Permute, Reshape, Multiply, Flatten, LayerNormalization, MultiHeadAttention, Add, GlobalAveragePooling1D
+from tensorflow.keras.layers import Input, LSTM, Dense, Dropout, Concatenate, Permute, Reshape, Multiply, Flatten, LayerNormalization, MultiHeadAttention, Add, GlobalAveragePooling1D, Embedding
 
 
 
@@ -215,9 +215,9 @@ print(percent_change_data)
 ###############################
 # Example trading strategy for labeling
 def define_label(data):
-    #data = (data * STD[f'{tickers[0]}_close']) + MEAN[f'{tickers[0]}_close']
+    # Apply any transformations needed to the label data
     return data
-    
+
 # Shift the percentage change data to create labels
 labels = percent_change_data.shift(-1).map(define_label)
 
@@ -229,34 +229,36 @@ labels = labels.iloc[:-1]
 ## HELPER TO CREATE SEQUENCES ##
 ################################
 # Function to create X-day sequences for each ticker
-def create_sequences(data, labels, mean, std, sequence_length=SEQUENCE_LEN):
+def create_sequences(data, labels, mean, std, sequence_length=24):
     sequences = []
     lab = []
     data_size = len(data)
 
     # Loop to create each sequence and its corresponding label
-    for i in range(data_size - (sequence_length + 13)): # Ensure we have data for the label
-        if i == 0:
-          continue
-        sequences.append(data[i:i + sequence_length])  # The sequence of data
-        lab.append([labels[i-1], labels[i + 12], mean[0], std[0]]) # The label and scaling factors
+    for i in range(data_size - (sequence_length + 12)):  # Ensure we have data for the label 12 steps ahead
+        sequences.append(data[i:i + sequence_length])
+        # Assign the labels
+        lab.append([data[i + sequence_length - 1][0], data[i + sequence_length + 12][0], mean[0], std[0]])
 
-#    for i in range(10):
-#        #i *= -1
-#        print(f'{sequences[i]=}')
-#        print(f'{lab[i]=}')
-
+    # Validate the sequences and labels
+    for i in range(10):  # Print first 10 sequences and labels for validation
+        last_value_in_sequence = sequences[i][-1][0]
+        first_value_in_label = lab[i][0]
+        if not np.isclose(last_value_in_sequence, first_value_in_label):
+            print(f"{last_value_in_sequence=} != {first_value_in_label=}")
+            input()
+            
     return np.array(sequences), np.array(lab)
 
 
 ######################
 ## CREATE SEQUENCES ##
 ######################
+# Create sequences and labels for each ticker
 sequences_dict = {}
 sequence_labels = {}
 for ticker in tickers:
-
-    # Extract close and volume data for the ticker
+    # Extract necessary data columns for the ticker
     close = percent_change_data[ticker+'_close'].values
     upper = percent_change_data[ticker+'_upper'].values
     lower = percent_change_data[ticker+'_lower'].values
@@ -268,75 +270,18 @@ for ticker in tickers:
     volume = percent_change_data[ticker+'_volume'].values
     diff = percent_change_data[ticker+'_diff'].values
     pct_change = percent_change_data[ticker+'_percent_change_close'].values
-    
-    # Combine close and volume data
-    ticker_data = np.column_stack((close,
-                                   #upper,
-                                   #lower,
-                                   width,
-                                   rsi,
-                                   #sma,
-                                   roc,
-                                   #momentum,
-                                   volume,
-                                   diff,
-                                   pct_change))
-    
-    # Generate sequences
-    #datetime = percent_change_data['Datetime'].to_numpy()
-    datetime = percent_change_data['Datetime'].values.astype('datetime64[s]')
-    attribute=ticker+"_close"
+
+    # Combine the data into a single array
+    ticker_data = np.column_stack((close, width, rsi, roc, volume, diff, pct_change))
+
+    # Generate sequences and labels
     ticker_sequences, lab = create_sequences(ticker_data,
-                                             labels[attribute].values[SEQUENCE_LEN-1:],
-                                             stats[attribute+"_mean"].values,
-                                             stats[attribute+"_std"].values)
-    #print(f"{ticker}, {len(ticker_sequences)=}, {len(lab)=}, {len(ticker_sequences)==len(lab)=}")
+                                             labels[ticker+'_close'].values,
+                                             stats[ticker+'_close_mean'].values,
+                                             stats[ticker+'_close_std'].values)
+
     sequences_dict[ticker] = ticker_sequences
-
-    # Align labels with sequences
-    sequence_labels[ticker] = lab #labels[ticker+'_close'].values[SEQUENCE_LEN-1:]
-
-## Combine data and labels from all tickers
-#all_sequences = []
-#all_labels = []
-#
-#for ticker in tickers:
-#    all_sequences.extend(sequences_dict[ticker])
-#    all_labels.extend(sequence_labels[ticker])
-#
-# Convert to numpy arrays
-#all_sequences = np.array(all_sequences)
-#all_labels = np.array(all_labels)
-#
-#
-##############
-### SHUFFLE ##
-##############
-#np.random.seed(42)
-#shuffled_indices = np.random.permutation(len(all_sequences))
-#all_sequences = all_sequences[shuffled_indices]
-#all_labels = all_labels[shuffled_indices]
-#
-#train_size = int(len(all_sequences) * 0.9)
-#
-## Split sequences
-#train_sequences = all_sequences[:train_size]
-#train_labels    = all_labels[:train_size]
-#
-#other_sequences = all_sequences[train_size:]
-#other_labels    = all_labels[train_size:]
-#
-#shuffled_indices = np.random.permutation(len(other_sequences))
-#other_sequences = other_sequences[shuffled_indices]
-#other_labels = other_labels[shuffled_indices]
-#
-#val_size = int(len(other_sequences) * 0.5)
-#
-#validation_sequences = other_sequences[:val_size]
-#validation_labels = other_labels[:val_size]
-#
-#test_sequences = other_sequences[val_size:]
-#test_labels = other_labels[val_size:]
+    sequence_labels[ticker] = lab
 
 train_sequences = []
 train_labels = []
@@ -396,6 +341,10 @@ def transformer_encoder(inputs, head_size, num_heads, ff_dim, dropout=0):
 def build_transformer_model(input_shape, head_size, num_heads, ff_dim, num_layers, dropout=0):
     inputs = Input(shape=input_shape)
     x = inputs
+
+    #vocab_size=10000
+    #embedding_dim=32
+    #x = Embedding(vocab_size, embedding_dim)(x)
     
     # Create multiple layers of the Transformer block
     for _ in range(num_layers):
@@ -412,11 +361,11 @@ def build_transformer_model(input_shape, head_size, num_heads, ff_dim, num_layer
 
 # Model parameters
 input_shape = train_sequences.shape[1:]
-head_size = 256 #128 #32
-num_heads = 16 #8 #2
-ff_dim = 1024 #512 #64
-num_layers = 12 #6 #2
-dropout = 0.20
+head_size = 12 #128 #512 #256 #128 #32
+num_heads = 8 #24 #16 #8 #2
+ff_dim = 24 #512 #1024 #1024 #512 #64
+num_layers = 6 #24 #12 #6 #2
+dropout = 0.90
 
 # Build the model
 model = build_transformer_model(input_shape, head_size, num_heads, ff_dim, num_layers, dropout)
@@ -508,9 +457,10 @@ def dir_acc(y_true, y_pred):
 ###################
 ## COMPILE MODEL ##
 ###################
-BATCH_SIZE = 256
-SCALE = BATCH_SIZE // 16
-EPOCHS = math.ceil( (350000 // SCALE) / math.ceil(len(train_sequences) / BATCH_SIZE) )
+BATCH_SIZE = 512
+#SCALE = BATCH_SIZE // 16
+#EPOCHS = math.ceil( (500000 // SCALE) / math.ceil(len(train_sequences) / BATCH_SIZE) )
+EPOCHS = 100
 
 # Compile the model
 optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
@@ -574,7 +524,9 @@ def get_lr_callback(batch_size=16, mode='cos', epochs=500, plot=False):
 ## TRAIN MODEL ##
 #################
 try:
-    model.load_weights("transformer_val_model.keras")
+    print("No Weights")
+    #model.load_weights("transformer_val_model.keras")
+    #model.load_weights("transformer_val_model.keras")
 except Exception as e:
     print(e)
 
@@ -584,7 +536,7 @@ model.fit(train_sequences, train_labels,
           epochs=EPOCHS,
           batch_size=BATCH_SIZE,
           shuffle=True,
-          callbacks=[checkpoint_callback_train, checkpoint_callback_val]) #, get_lr_callback(batch_size=BATCH_SIZE, epochs=EPOCHS)])
+          callbacks=[checkpoint_callback_train, checkpoint_callback_val, get_lr_callback(batch_size=BATCH_SIZE, epochs=EPOCHS)])
 
 
 ########################
@@ -594,20 +546,28 @@ model.fit(train_sequences, train_labels,
 model.load_weights("transformer_val_model.keras")
 
 # Make predictions
-accuracy = model.evaluate(train_sequences, train_labels)[1]
-print(accuracy)
-predictions = model.predict(train_sequences)
+accuracy = model.evaluate(validation_sequences, validation_labels)[1]
+print(f"{accuracy=}")
+predictions = model.predict(validation_sequences)
+
+mean, std = validation_labels[:, 2], validation_labels[:, 3]
+
+# Correctly scale the actual and predicted values
+y_true_prev = (validation_labels[:, 0] * std) + mean
+y_true_next = (validation_labels[:, 1] * std) + mean
+y_pred_next = (predictions[:, 0] * std) + mean
 
 plt.figure(figsize=(10, 6))
-plt.plot(train_labels[-500:, :2], label='Actual')
-plt.plot(predictions[-500:], label='Predicted')
-plt.title(f'Actual vs. Predicted Trainues with {accuracy=:.4f}')
+plt.plot(y_true_prev[-100:], label='Actual Line 1 (prev)', color='blue')
+plt.plot(y_true_next[-100:], label='Actual Line 2 (next)', color='green')
+plt.plot(y_pred_next[-100:], label='Predicted (next)', color='black')
+plt.title(f'Actual vs. Predicted Validation Values with accuracy={accuracy:.4f}')
 plt.legend()
-plt.savefig(f"{ticker}_Actual_VS_Predicted.png")
+plt.savefig(f"Actual_VS_Predicted.png")
 #plt.show()
 
 # Calculate additional metrics as needed
 from sklearn.metrics import r2_score
 
-r2 = r2_score(train_labels[:, 1], predictions[:, 0])
+r2 = r2_score(validation_labels[:, 1], predictions[:, 0])
 print(f"R-squared: {r2}")
