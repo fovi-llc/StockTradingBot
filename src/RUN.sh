@@ -52,6 +52,7 @@ TICKERS=('AAPL' 'ABBV' 'ACN' 'ADBE' 'AEP' 'AFL' 'AIG' 'ALGN'
 
 #TICKERS=('META' 'AAPL' 'MSFT' 'AMZN' 'GOOG')
 #TICKERS=('AAPL')
+TICKERS=('NASDAQ')
 
 for ((i=0; i<100; i++))
 do

@@ -192,15 +192,33 @@ def calculate_bollinger_bands(data, window=10, num_of_std=2):
 #print(stats)
 #exit()
 
-stats = pd.read_csv(f"data/STATS.csv")
-ticker_data_frames = []
-for ticker in tqdm.tqdm(tickers):
-    df = pd.read_csv(f"data/{ticker}.csv")
-    df['Datetime'] = pd.to_datetime(df['Datetime'], utc=True)
-    df['Datetime'] = df['Datetime'].dt.tz_localize(None)
-    ticker_data_frames.append(df)
+if tickers[0] == "NASDAQ":
+    stats = pd.read_csv(f"data_nasdaq/STATS.csv")
     
-# Concatenate all ticker DataFrames
+    nasdaq = pd.read_csv(f"nasdaq_tickers.csv")
+    nasdaq = nasdaq['Ticker']
+    ticker_data_frames = []
+    tickers = []
+    for ticker in tqdm.tqdm(nasdaq):
+        try:
+            df = pd.read_csv(f"data_nasdaq/{ticker}.csv")
+            if len(df) < 4000: continue
+            df['Datetime'] = pd.to_datetime(df['Datetime'], utc=True)
+            df['Datetime'] = df['Datetime'].dt.tz_localize(None)
+            ticker_data_frames.append(df)
+            tickers.append(ticker)
+        except Exception as e:
+            print(e)
+else:
+    stats = pd.read_csv(f"data/STATS.csv")
+    ticker_data_frames = []
+    for ticker in tqdm.tqdm(tickers):
+        df = pd.read_csv(f"data/{ticker}.csv")
+        df['Datetime'] = pd.to_datetime(df['Datetime'], utc=True)
+        df['Datetime'] = df['Datetime'].dt.tz_localize(None)
+        ticker_data_frames.append(df)
+    
+# Concatenate all ticker DataFrames)
 percent_change_data = pd.concat(ticker_data_frames, axis=1)
 print(stats)
 
@@ -257,32 +275,39 @@ def create_sequences(data, labels, mean, std, sequence_length=24):
 # Create sequences and labels for each ticker
 sequences_dict = {}
 sequence_labels = {}
-for ticker in tickers:
-    # Extract necessary data columns for the ticker
-    close = percent_change_data[ticker+'_close'].values
-    upper = percent_change_data[ticker+'_upper'].values
-    lower = percent_change_data[ticker+'_lower'].values
-    width = percent_change_data[ticker+'_width'].values
-    rsi = percent_change_data[ticker+'_rsi'].values
-    sma = percent_change_data[ticker+'_sma'].values
-    roc = percent_change_data[ticker+'_roc'].values
-    momentum = percent_change_data[ticker+'_momentum'].values
-    volume = percent_change_data[ticker+'_volume'].values
-    diff = percent_change_data[ticker+'_diff'].values
-    pct_change = percent_change_data[ticker+'_percent_change_close'].values
+for ticker in tqdm.tqdm(tickers):
+    try:
+        # Extract necessary data columns for the ticker
+        close = percent_change_data[ticker+'_close'].values
+        upper = percent_change_data[ticker+'_upper'].values
+        lower = percent_change_data[ticker+'_lower'].values
+        width = percent_change_data[ticker+'_width'].values
+        rsi = percent_change_data[ticker+'_rsi'].values
+        sma = percent_change_data[ticker+'_sma'].values
+        roc = percent_change_data[ticker+'_roc'].values
+        momentum = percent_change_data[ticker+'_momentum'].values
+        volume = percent_change_data[ticker+'_volume'].values
+        diff = percent_change_data[ticker+'_diff'].values
+        pct_change = percent_change_data[ticker+'_percent_change_close'].values
+        
+        # Combine the data into a single array
+        ticker_data = np.column_stack((close, width, rsi, roc, volume, diff, pct_change))
+        
+        # Generate sequences and labels
+        ticker_sequences, lab = create_sequences(ticker_data,
+                                                 labels[ticker+'_close'].values,
+                                                 stats[ticker+'_close_mean'].values,
+                                                 stats[ticker+'_close_std'].values)
+        
+        sequences_dict[ticker] = ticker_sequences
+        sequence_labels[ticker] = lab
+    except Exception as e:
+        pass
+        #print("Exception", e)
 
-    # Combine the data into a single array
-    ticker_data = np.column_stack((close, width, rsi, roc, volume, diff, pct_change))
-
-    # Generate sequences and labels
-    ticker_sequences, lab = create_sequences(ticker_data,
-                                             labels[ticker+'_close'].values,
-                                             stats[ticker+'_close_mean'].values,
-                                             stats[ticker+'_close_std'].values)
-
-    sequences_dict[ticker] = ticker_sequences
-    sequence_labels[ticker] = lab
-
+########################################
+## Create TRAIN, VALID, AND TEST DATA ##
+########################################
 train_sequences = []
 train_labels = []
 validation_sequences = []
@@ -290,22 +315,26 @@ validation_labels = []
 test_sequences = []
 test_labels = []
 
-for ticker in tickers:
-    sequences = sequences_dict[ticker]
-    labels = sequence_labels[ticker]
+for ticker in tqdm.tqdm(tickers):
+    try:
+        sequences = sequences_dict[ticker]
+        labels = sequence_labels[ticker]
 
-    total_size = len(sequences)
-    train_size = int(total_size * 0.9)
-    val_size = int(total_size * 0.05)
-    
-    train_sequences.extend(sequences[:train_size])
-    train_labels.extend(labels[:train_size])
-    
-    validation_sequences.extend(sequences[train_size:train_size + val_size])
-    validation_labels.extend(labels[train_size:train_size + val_size])
-    
-    test_sequences.extend(sequences[train_size + val_size:])
-    test_labels.extend(labels[train_size + val_size:])
+        total_size = len(sequences)
+        train_size = int(total_size * 0.9)
+        val_size = int(total_size * 0.05)
+        
+        train_sequences.extend(sequences[:train_size])
+        train_labels.extend(labels[:train_size])
+        
+        validation_sequences.extend(sequences[train_size:train_size + val_size])
+        validation_labels.extend(labels[train_size:train_size + val_size])
+        
+        test_sequences.extend(sequences[train_size + val_size:])
+        test_labels.extend(labels[train_size + val_size:])
+    except Exception as e:
+        pass
+        #print(e)
 
 # Convert lists to numpy arrays
 train_sequences = np.array(train_sequences)
@@ -321,6 +350,9 @@ shuffled_indices = np.random.permutation(len(train_sequences))
 train_sequences = train_sequences[shuffled_indices]
 train_labels = train_labels[shuffled_indices]
 
+print(f"{train_sequences.shape=}, {train_labels.shape=}")
+print(f"{validation_sequences.shape=}, {validation_labels.shape=}")
+print(f"{test_sequences.shape=}, {test_labels.shape=}")
 
 ###########################
 ## DEFINE NEURAL NETWORK ##
@@ -364,7 +396,7 @@ input_shape = train_sequences.shape[1:]
 head_size = 12 #128 #512 #256 #128 #32
 num_heads = 8 #24 #16 #8 #2
 ff_dim = 24 #512 #1024 #1024 #512 #64
-num_layers = 6 #24 #12 #6 #2
+num_layers = 2 #24 #12 #6 #2
 dropout = 0.90
 
 # Build the model
@@ -524,19 +556,19 @@ def get_lr_callback(batch_size=16, mode='cos', epochs=500, plot=False):
 ## TRAIN MODEL ##
 #################
 try:
-    print("No Weights")
-    #model.load_weights("transformer_val_model.keras")
-    #model.load_weights("transformer_val_model.keras")
+    #print("No Weights")
+    model.load_weights("transformer_val_model.keras")
+    #model.load_weights("transformer_train_model.keras")
 except Exception as e:
     print(e)
 
 # Train Model
-model.fit(train_sequences, train_labels,
-          validation_data=(validation_sequences, validation_labels),
-          epochs=EPOCHS,
-          batch_size=BATCH_SIZE,
-          shuffle=True,
-          callbacks=[checkpoint_callback_train, checkpoint_callback_val, get_lr_callback(batch_size=BATCH_SIZE, epochs=EPOCHS)])
+#model.fit(train_sequences, train_labels,
+#          validation_data=(validation_sequences, validation_labels),
+#          epochs=EPOCHS,
+#          batch_size=BATCH_SIZE,
+#          shuffle=True,
+#          callbacks=[checkpoint_callback_train, checkpoint_callback_val, get_lr_callback(batch_size=BATCH_SIZE, epochs=EPOCHS)])
 
 
 ########################
@@ -571,3 +603,41 @@ from sklearn.metrics import r2_score
 
 r2 = r2_score(validation_labels[:, 1], predictions[:, 0])
 print(f"R-squared: {r2}")
+
+best_acc = 0
+best_ticker = ''
+for ticker in tqdm.tqdm(tickers):
+    try:
+        sequences = sequences_dict[ticker]
+        labels = sequence_labels[ticker]
+
+        total_size = len(sequences)
+        train_size = int(total_size * 0.9)
+        val_size = int(total_size * 0.05)
+        
+        tr_data = sequences[:train_size]
+        tr_labs = labels[:train_size]
+        
+        va_data = sequences[train_size:train_size + val_size]
+        va_labs = labels[train_size:train_size + val_size]
+        
+        te_data = sequences[train_size + val_size:]
+        te_labs = labels[train_size + val_size:]
+
+        tr_accuracy = model.evaluate(tr_data, tr_labs)[1]
+        va_accuracy = model.evaluate(va_data, va_labs)[1]
+        te_accuracy = model.evaluate(te_data, te_labs)[1]
+        print(f"{tr_accuracy=}")
+        print(f"{va_accuracy=}")
+        print(f"{te_accuracy=}")
+
+        if te_accuracy > best_acc:
+            best_acc = te_accuracy
+            best_ticker = ticker
+
+        
+    except Exception as e:
+        print(e)
+        pass
+
+print(f"{best_ticker} : {best_acc=}")
